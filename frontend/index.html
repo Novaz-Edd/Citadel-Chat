@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citadel Chat — Secure RAG Intelligence</title>
+    <style>
+        /* ═══════════════════════════════════════════
+           CITADEL DESIGN SYSTEM — DARK FORTRESS
+           ═══════════════════════════════════════════ */
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1a2233;
+            --bg-card: #151d2e;
+            --border: #1e293b;
+            --border-hover: #334155;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.15);
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --radius: 10px;
+            --transition: 200ms ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ═══ SCROLLBAR ═══ */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* ═══ AUTH SCREEN ═══ */
+        #authScreen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: radial-gradient(ellipse at 30% 20%, rgba(59,130,246,0.08) 0%, transparent 60%),
+                        radial-gradient(ellipse at 70% 80%, rgba(139,92,246,0.06) 0%, transparent 60%),
+                        var(--bg-primary);
+        }
+
+        .auth-container {
+            width: 420px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+        }
+
+        .auth-logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .auth-logo h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .auth-logo p {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 28px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: var(--transition);
+        }
+
+        .auth-tab.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        /* ═══ PASSWORD STRENGTH METER ═══ */
+        .password-strength {
+            margin-top: 8px;
+            display: none;
+        }
+
+        .strength-bars {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .strength-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            transition: background 300ms;
+        }
+
+        .strength-bar.active.weak { background: var(--danger); }
+        .strength-bar.active.fair { background: var(--warning); }
+        .strength-bar.active.good { background: #3b82f6; }
+        .strength-bar.active.strong { background: var(--success); }
+
+        .strength-label {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 13px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 8px;
+        }
+
+        .auth-btn:hover { background: var(--accent-hover); }
+        .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .auth-divider::before, .auth-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .guest-btn {
+            width: 100%;
+            padding: 13px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .guest-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .guest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .guest-label {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .auth-error {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+            color: var(--danger);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        /* ═══ APP LAYOUT ═══ */
+        #appScreen {
+            display: none;
+            height: 100vh;
+        }
+
+        .app-layout {
+            display: flex;
+            height: 100%;
+        }
+
+        /* ═══ SIDEBAR ═══ */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-brand {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-brand h2 {
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sidebar-brand .session-info {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .session-timer {
+            color: var(--success);
+            font-family: var(--font-mono);
+            font-weight: 600;
+        }
+
+        .session-timer.warning { color: var(--warning); }
+        .session-timer.critical { color: var(--danger); animation: pulse 1s infinite; }
+
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 12px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            margin-bottom: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+        .nav-item.active { background: var(--accent-glow); color: var(--accent); }
+
+        .nav-item .nav-icon { font-size: 18px; width: 24px; text-align: center; }
+
+        .nav-badge {
+            position: absolute;
+            right: 12px;
+            background: var(--accent);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-user {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .user-info { flex: 1; }
+        .user-name { font-size: 13px; font-weight: 600; }
+        .user-plan { font-size: 11px; color: var(--text-muted); }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 6px;
+            border-radius: 6px;
+            transition: var(--transition);
+        }
+
+        .logout-btn:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+
+        /* ═══ MAIN CONTENT ═══ */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .content-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .content-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .header-status {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        /* ═══ CHAT PANEL ═══ */
+        .chat-panel { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            max-width: 800px;
+        }
+
+        .message.user { flex-direction: row-reverse; margin-left: auto; }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .message-avatar { background: var(--accent-glow); color: var(--accent); }
+        .message.user .message-avatar { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+
+        .message-body { flex: 1; }
+
+        .message-content {
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .message.assistant .message-content { background: var(--bg-secondary); border: 1px solid var(--border); }
+        .message.user .message-content { background: var(--accent); color: white; }
+
+        .message-meta {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .message.user .message-meta { justify-content: flex-end; }
+
+        .source-tag {
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--accent);
+        }
+
+        .chat-welcome {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .welcome-icon { font-size: 48px; margin-bottom: 16px; }
+
+        .welcome-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .welcome-sub {
+            color: var(--text-muted);
+            font-size: 14px;
+            max-width: 400px;
+            line-height: 1.6;
+        }
+
+        .quick-tips {
+            display: flex;
+            gap: 8px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .quick-tip {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .quick-tip:hover { border-color: var(--accent); color: var(--accent); }
+
+        .chat-input-area {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 14px 18px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: var(--font-sans);
+            resize: none;
+            max-height: 120px;
+            transition: var(--transition);
+        }
+
+        .chat-input:focus { outline: none; border-color: var(--accent); }
+
+        .send-btn {
+            width: 48px;
+            height: 48px;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .send-btn:hover { background: var(--accent-hover); }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ═══ UPLOAD PANEL ═══ */
+        .upload-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+
+        .upload-zone {
+            margin: 24px;
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 60px 40px;
+            text-align: center;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .upload-zone-icon { font-size: 48px; margin-bottom: 16px; }
+
+        .upload-zone-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .upload-zone-sub {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .upload-security-note {
+            background: rgba(59,130,246,0.08);
+            border: 1px solid rgba(59,130,246,0.2);
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin: 0 24px 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .upload-security-note .note-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+        .upload-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 24px 24px;
+        }
+
+        .upload-history-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .upload-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        .upload-item-icon { font-size: 20px; }
+        .upload-item-name { flex: 1; font-size: 13px; font-weight: 500; }
+        .upload-item-status { font-size: 12px; color: var(--success); }
+
+        .upload-progress {
+            display: none;
+            margin: 0 24px 16px;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 3px;
+            transition: width 300ms;
+            width: 0%;
+        }
+
+        .progress-text { font-size: 12px; color: var(--text-secondary); }
+
+        /* ═══ NOTIFICATION TOAST ═══ */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 300ms ease;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+
+        .toast.success { background: var(--success); color: white; }
+        .toast.error { background: var(--danger); color: white; }
+        .toast.warning { background: var(--warning); color: #000; }
+
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* ═══ LOADING SPINNER ═══ */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 14px 18px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-8px); }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     AUTH SCREEN
+     ═══════════════════════════════════════════ -->
+<div id="authScreen">
+    <div class="auth-container">
+        <div class="auth-logo">
+            <h1>🏰 Citadel Chat</h1>
+            <p>Secure RAG Intelligence Platform</p>
+        </div>
+
+        <div class="auth-tabs">
+            <button class="auth-tab active" onclick="window.citadel.switchAuthTab('login')">Sign In</button>
+            <button class="auth-tab" onclick="window.citadel.switchAuthTab('register')">Create Account</button>
+        </div>
+
+        <div class="auth-error" id="authError"></div>
+
+        <!-- Login Form -->
+        <form id="loginForm" onsubmit="window.citadel.handleLogin(event)">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="loginUser" placeholder="Enter your username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPass" placeholder="Enter your password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="auth-btn" id="loginBtn">Sign In</button>
+        </form>
+
+        <!-- Guest Access -->
+        <div class="auth-divider">or</div>
+        <button class="guest-btn" id="guestBtn" onclick="window.citadel.handleGuestLogin()">👤 Continue as Guest</button>
+
+        <!-- Register Form -->
+        <form id="registerForm" class="hidden" onsubmit="window.citadel.handleRegister(event)">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="regUser" placeholder="Choose a username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="regPass" placeholder="Create a strong password" required autocomplete="new-password"
+                       oninput="window.citadel.updatePasswordStrength(this.value)">
+                <div class="password-strength" id="passwordStrength">
+                    <div class="strength-bars">
+                        <div class="strength-bar" id="str1"></div>
+                        <div class="strength-bar" id="str2"></div>
+                        <div class="strength-bar" id="str3"></div>
+                        <div class="strength-bar" id="str4"></div>
+                    </div>
+                    <span class="strength-label" id="strengthLabel"></span>
+                </div>
+            </div>
+            <button type="submit" class="auth-btn" id="regBtn">Create Account</button>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     APP SCREEN
+     ═══════════════════════════════════════════ -->
+<div id="appScreen">
+    <div class="app-layout">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <h2>🏰 Citadel</h2>
+                <div class="session-info">
+                    Session: <span class="session-timer" id="sessionTimer">60:00</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-item active" onclick="window.citadel.switchPanel('chat')">
+                    <span class="nav-icon">💬</span> Chat
+                </div>
+                <div class="nav-item" onclick="window.citadel.switchPanel('upload')">
+                    <span class="nav-icon">📄</span> Upload
+                    <span class="nav-badge hidden" id="uploadBadge">0</span>
+                </div>
+            </nav>
+
+            <div class="sidebar-user">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-info">
+                    <div class="user-name" id="userName">User</div>
+                    <div class="user-plan">Secure Plan</div>
+                </div>
+                <button class="logout-btn" onclick="window.citadel.manualLogout()" title="Logout">⏻</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-header">
+                <h3 id="panelTitle">💬 Secure Chat</h3>
+                <div class="header-status">
+                    <div class="status-dot"></div>
+                    <span>Encrypted Session</span>
+                </div>
+            </div>
+
+            <!-- Chat Panel -->
+            <div class="chat-panel" id="chatPanel">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-welcome" id="chatWelcome">
+                        <div class="welcome-icon">🏰</div>
+                        <div class="welcome-title">Welcome to Citadel Chat</div>
+                        <div class="welcome-sub">
+                            Upload your PDF documents and ask questions. Your data stays isolated — only you can access your documents.
+                        </div>
+                        <div class="quick-tips">
+                            <div class="quick-tip" onclick="window.citadel.setQuestion('Summarize my uploaded documents')">📋 Summarize docs</div>
+                            <div class="quick-tip" onclick="window.citadel.setQuestion('What are the key findings?')">🔍 Key findings</div>
+                            <div class="quick-tip" onclick="window.citadel.setQuestion('List all action items')">✅ Action items</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <div class="chat-input-wrapper">
+                        <textarea class="chat-input" id="chatInput"
+                                  placeholder="Ask a question about your documents..."
+                                  rows="1"
+                                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.citadel.sendMessage()}"></textarea>
+                        <button class="send-btn" onclick="window.citadel.sendMessage()" id="sendBtn">➤</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Panel -->
+            <div class="upload-panel" id="uploadPanel">
+
+                <div class="upload-zone" id="uploadZone"
+                     onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-zone-icon">📄</div>
+                    <div class="upload-zone-title">Drop your PDF here</div>
+                    <div class="upload-zone-sub">or click to browse • PDF files only • Max 50MB</div>
+                </div>
+
+                <input type="file" id="fileInput" accept=".pdf" class="hidden">
+
+                <div class="upload-security-note">
+                    <span class="note-icon">🔒</span>
+                    <span>Files are processed with owner-level isolation. Only your account can query your uploaded documents. All data is stored in your private vector space.</span>
+                </div>
+
+                <div class="upload-progress" id="uploadProgress">
+                    <div class="progress-text" id="progressText">Uploading...</div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="progressFill"></div>
+                    </div>
+                </div>
+
+                <div class="upload-history">
+                    <div class="upload-history-title">Upload History</div>
+                    <div id="uploadList">
+                        <p style="color: var(--text-muted); font-size: 13px;">No files uploaded yet.</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═══════════════════════════════════════════
+     CITADEL ENGINE — ENTERPRISE SECURITY JS
+     ═══════════════════════════════════════════ -->
+<script>
+(function() {
+    'use strict';
+
+    // ─── STATE ─────────────────────────────────
+    let authToken = null;
+    let currentUser = null;
+    let isGuest = false;
+    let sessionInterval = null;
+    let sessionExpiry = null;
+    let uploadCount = 0;
+    const SESSION_DURATION_MS = 60 * 60 * 1000; // 60 minutes
+
+    // ─── AUTO-LOGOUT PROTOCOL ──────────────────
+    function autoLogout(reason) {
+        console.warn('[CITADEL] Auto-Logout triggered:', reason);
+
+        // Purge all sensitive data
+        authToken = null;
+        currentUser = null;
+        isGuest = false;
+        sessionExpiry = null;
+
+        // Clear session timer
+        if (sessionInterval) {
+            clearInterval(sessionInterval);
+            sessionInterval = null;
+        }
+
+        // Wipe chat history from DOM
+        const chatMessages = document.getElementById('chatMessages');
+        if (chatMessages) {
+            chatMessages.innerHTML = '';
+        }
+
+        // Reset upload state
+        uploadCount = 0;
+        const uploadBadge = document.getElementById('uploadBadge');
+        if (uploadBadge) {
+            uploadBadge.classList.add('hidden');
+            uploadBadge.textContent = '0';
+        }
+        const uploadList = document.getElementById('uploadList');
+        if (uploadList) {
+            uploadList.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">No files uploaded yet.</p>';
+        }
+
+        // Switch to auth screen
+        document.getElementById('appScreen').style.display = 'none';
+        document.getElementById('authScreen').style.display = 'flex';
+
+        // Show reason
+        showToast(reason || 'Session ended. Please sign in again.', 'warning');
+
+        // Reset forms
+        document.getElementById('loginForm').reset();
+        const regForm = document.getElementById('registerForm');
+        if (regForm) regForm.reset();
+    }
+
+    // ─── FETCH WITH AUTH (SECURITY WRAPPER) ────
+    async function fetchWithAuth(url, options = {}) {
+        if (!authToken) {
+            autoLogout('No authentication token. Please sign in.');
+            throw new Error('UNAUTHORIZED');
+        }
+
+        // Build headers — CRITICAL: Do NOT set Content-Type for FormData!
+        // The browser must set it to multipart/form-data with the correct boundary.
+        var headers = {};
+        if (options.body instanceof FormData) {
+            // Only set Authorization — let browser handle Content-Type
+            headers['Authorization'] = 'Bearer ' + authToken;
+        } else {
+            headers['Content-Type'] = 'application/json';
+            headers['Authorization'] = 'Bearer ' + authToken;
+        }
+        options.headers = headers;
+
+        var response;
+        try {
+            response = await fetch(url, options);
+        } catch (networkError) {
+            showToast('Backend is offline. Please start the server.', 'error');
+            showAuthError('Cannot reach server. Is the backend running on port 8000?');
+            throw networkError;
+        }
+
+        // 401 = immediate auto-logout
+        if (response.status === 401) {
+            autoLogout('Session expired or invalid. Logging out for security.');
+            throw new Error('UNAUTHORIZED');
+        }
+
+        return response;
+    }
+
+    // ─── SESSION TIMER ─────────────────────────
+    function startSessionTimer() {
+        sessionExpiry = Date.now() + SESSION_DURATION_MS;
+
+        if (sessionInterval) clearInterval(sessionInterval);
+
+        sessionInterval = setInterval(function() {
+            const remaining = sessionExpiry - Date.now();
+
+            if (remaining <= 0) {
+                autoLogout('Session expired. Auto-logged out for security.');
+                return;
+            }
+
+            const mins = Math.floor(remaining / 60000);
+            const secs = Math.floor((remaining % 60000) / 1000);
+            const timerEl = document.getElementById('sessionTimer');
+            timerEl.textContent = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+
+            // Warning colors
+            timerEl.classList.remove('warning', 'critical');
+            if (remaining <= 5 * 60 * 1000) {
+                timerEl.classList.add('critical');
+            } else if (remaining <= 10 * 60 * 1000) {
+                timerEl.classList.add('warning');
+            }
+
+            // 5-minute warning toast
+            if (mins === 5 && secs === 0) {
+                showToast('Session expires in 5 minutes.', 'warning');
+            }
+        }, 1000);
+    }
+
+    // ─── PASSWORD STRENGTH METER ───────────────
+    function updatePasswordStrength(password) {
+        const container = document.getElementById('passwordStrength');
+        if (!password) {
+            container.style.display = 'none';
+            return;
+        }
+        container.style.display = 'block';
+
+        let score = 0;
+        if (password.length >= 8) score++;
+        if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
+        if (/\d/.test(password)) score++;
+        if (/[^A-Za-z0-9]/.test(password)) score++;
+
+        const levels = ['weak', 'fair', 'good', 'strong'];
+        const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+        const level = levels[Math.max(0, score - 1)] || 'weak';
+
+        for (var i = 1; i <= 4; i++) {
+            var bar = document.getElementById('str' + i);
+            bar.classList.remove('active', 'weak', 'fair', 'good', 'strong');
+            if (i <= score) {
+                bar.classList.add('active', level);
+            }
+        }
+
+        document.getElementById('strengthLabel').textContent = labels[Math.max(0, score - 1)] || '';
+    }
+
+    // ─── AUTH TAB SWITCHING ────────────────────
+    function switchAuthTab(tab) {
+        var tabs = document.querySelectorAll('.auth-tab');
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        document.getElementById('authError').style.display = 'none';
+
+        if (tab === 'login') {
+            tabs[0].classList.add('active');
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+        } else {
+            tabs[1].classList.add('active');
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+        }
+    }
+
+    function showAuthError(msg) {
+        var el = document.getElementById('authError');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+
+    // ─── LOGIN ─────────────────────────────────
+    async function handleLogin(e) {
+        e.preventDefault();
+        var btn = document.getElementById('loginBtn');
+        btn.disabled = true;
+        btn.textContent = 'Signing in...';
+
+        try {
+            var username = document.getElementById('loginUser').value.trim();
+            var password = document.getElementById('loginPass').value;
+
+            var formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            var res = await fetch('/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+
+            if (!res.ok) {
+                var err = await res.json();
+                throw new Error(err.detail || 'Invalid credentials');
+            }
+
+            var data = await res.json();
+            authToken = data.access_token;
+            currentUser = username;
+            isGuest = false;
+            enterApp();
+
+        } catch (err) {
+            if (err.message === 'Failed to fetch') {
+                showAuthError('Cannot reach server. Is the backend running on port 8000?');
+            } else {
+                showAuthError(err.message);
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Sign In';
+        }
+    }
+
+    // ─── REGISTER ──────────────────────────────
+    async function handleRegister(e) {
+        e.preventDefault();
+        var btn = document.getElementById('regBtn');
+        btn.disabled = true;
+        btn.textContent = 'Creating account...';
+
+        try {
+            var username = document.getElementById('regUser').value.trim();
+            var password = document.getElementById('regPass').value;
+
+            if (password.length < 6) {
+                throw new Error('Password must be at least 6 characters.');
+            }
+
+            var res = await fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            });
+
+            if (!res.ok) {
+                var err = await res.json();
+                throw new Error(err.detail || 'Registration failed');
+            }
+
+            showToast('Account created! Signing you in...', 'success');
+
+            // Auto-login after register
+            var formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            var loginRes = await fetch('/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+
+            if (!loginRes.ok) throw new Error('Auto-login failed. Please sign in manually.');
+
+            var data = await loginRes.json();
+            authToken = data.access_token;
+            currentUser = username;
+            isGuest = false;
+            enterApp();
+
+        } catch (err) {
+            if (err.message === 'Failed to fetch') {
+                showAuthError('Cannot reach server. Is the backend running on port 8000?');
+            } else {
+                showAuthError(err.message);
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Create Account';
+        }
+    }
+
+    // ─── GUEST LOGIN ──────────────────────────
+    async function handleGuestLogin() {
+        var btn = document.getElementById('guestBtn');
+        btn.disabled = true;
+        btn.textContent = 'Creating guest session...';
+        document.getElementById('authError').style.display = 'none';
+
+        try {
+            var res = await fetch('/guest-login', {
+                method: 'POST'
+            });
+
+            if (!res.ok) {
+                var err = await res.json().catch(function() { return {}; });
+                throw new Error(err.detail || 'Guest login failed');
+            }
+
+            var data = await res.json();
+            authToken = data.access_token;
+            // Decode the guest username from the JWT payload
+            try {
+                var payload = JSON.parse(atob(data.access_token.split('.')[1]));
+                currentUser = payload.sub || 'Guest';
+            } catch (e) {
+                currentUser = 'Guest';
+            }
+            isGuest = true;
+            enterApp();
+
+        } catch (err) {
+            if (err.message === 'Failed to fetch') {
+                showAuthError('Cannot reach server. Is the backend running on port 8000?');
+            } else {
+                showAuthError(err.message);
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '👤 Continue as Guest';
+        }
+    }
+
+    // ─── ENTER APP ─────────────────────────────
+    function enterApp() {
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('appScreen').style.display = 'block';
+
+        // Set user info
+        var displayName = currentUser;
+        document.getElementById('userName').textContent = displayName;
+        document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
+
+        // Update plan label for guests
+        var planEl = document.querySelector('.user-plan');
+        if (isGuest) {
+            planEl.innerHTML = '<span class="guest-label">Guest</span>';
+        } else {
+            planEl.textContent = 'Secure Plan';
+        }
+
+        // Reset chat
+        var chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = '';
+        insertWelcome();
+
+        // Start session timer
+        startSessionTimer();
+
+        var welcomeMsg = isGuest ? 'Welcome, Guest! Upload PDFs and chat away.' : 'Welcome, ' + currentUser + '!';
+        showToast(welcomeMsg, 'success');
+    }
+
+    function insertWelcome() {
+        var chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML =
+            '<div class="chat-welcome" id="chatWelcome">' +
+                '<div class="welcome-icon">🏰</div>' +
+                '<div class="welcome-title">Welcome to Citadel Chat</div>' +
+                '<div class="welcome-sub">' +
+                    'Upload your PDF documents and ask questions. Your data stays isolated — only you can access your documents.' +
+                '</div>' +
+                '<div class="quick-tips">' +
+                    '<div class="quick-tip" onclick="window.citadel.setQuestion(\'Summarize my uploaded documents\')">📋 Summarize docs</div>' +
+                    '<div class="quick-tip" onclick="window.citadel.setQuestion(\'What are the key findings?\')">🔍 Key findings</div>' +
+                    '<div class="quick-tip" onclick="window.citadel.setQuestion(\'List all action items\')">✅ Action items</div>' +
+                '</div>' +
+            '</div>';
+    }
+
+    // ─── PANEL SWITCHING ───────────────────────
+    function switchPanel(panel) {
+        var navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(function(n) { n.classList.remove('active'); });
+
+        if (panel === 'chat') {
+            navItems[0].classList.add('active');
+            document.getElementById('chatPanel').style.display = 'flex';
+            document.getElementById('uploadPanel').style.display = 'none';
+            document.getElementById('panelTitle').textContent = '💬 Secure Chat';
+        } else {
+            navItems[1].classList.add('active');
+            document.getElementById('chatPanel').style.display = 'none';
+            document.getElementById('uploadPanel').style.display = 'flex';
+            document.getElementById('panelTitle').textContent = '📄 Document Upload';
+        }
+    }
+
+    // ─── CHAT ──────────────────────────────────
+    function setQuestion(text) {
+        document.getElementById('chatInput').value = text;
+        document.getElementById('chatInput').focus();
+    }
+
+    function getTimestamp() {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function addMessage(role, content, sources) {
+        // Remove welcome on first message
+        var welcome = document.getElementById('chatWelcome');
+        if (welcome) welcome.remove();
+
+        var chatMessages = document.getElementById('chatMessages');
+        var div = document.createElement('div');
+        div.classList.add('message', role);
+
+        var sourceTags = '';
+        if (sources && sources.length) {
+            sourceTags = sources.map(function(s) { return '<span class="source-tag">' + escapeHtml(s) + '</span>'; }).join('');
+        }
+
+        var avatar = role === 'user' ? '👤' : '🏰';
+
+        div.innerHTML =
+            '<div class="message-avatar">' + avatar + '</div>' +
+            '<div class="message-body">' +
+                '<div class="message-content">' + escapeHtml(content) + '</div>' +
+                '<div class="message-meta">' +
+                    '<span>' + getTimestamp() + '</span>' +
+                    sourceTags +
+                '</div>' +
+            '</div>';
+
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return div;
+    }
+
+    function addTypingIndicator() {
+        var welcome = document.getElementById('chatWelcome');
+        if (welcome) welcome.remove();
+
+        var chatMessages = document.getElementById('chatMessages');
+        var div = document.createElement('div');
+        div.classList.add('message', 'assistant');
+        div.id = 'typingIndicator';
+        div.innerHTML =
+            '<div class="message-avatar">🏰</div>' +
+            '<div class="message-body">' +
+                '<div class="message-content">' +
+                    '<div class="typing-indicator">' +
+                        '<div class="typing-dot"></div>' +
+                        '<div class="typing-dot"></div>' +
+                        '<div class="typing-dot"></div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+        var el = document.getElementById('typingIndicator');
+        if (el) el.remove();
+    }
+
+    async function sendMessage() {
+        var input = document.getElementById('chatInput');
+        var question = input.value.trim();
+        if (!question) return;
+
+        input.value = '';
+        input.style.height = 'auto';
+        addMessage('user', question);
+        addTypingIndicator();
+        document.getElementById('sendBtn').disabled = true;
+
+        try {
+            var res = await fetchWithAuth('/chat', {
+                method: 'POST',
+                body: JSON.stringify({ question: question })
+            });
+
+            removeTypingIndicator();
+
+            if (!res.ok) {
+                var errData = await res.json().catch(function() { return {}; });
+                throw new Error(errData.detail || 'Chat request failed');
+            }
+
+            var data = await res.json();
+            var sources = data.sources ? data.sources.map(function(s) {
+                var parts = s.split(/[/\\]/);
+                return parts[parts.length - 1];
+            }) : [];
+            addMessage('assistant', data.answer, sources);
+
+        } catch (err) {
+            removeTypingIndicator();
+            if (err.message !== 'UNAUTHORIZED') {
+                addMessage('assistant', 'Error: ' + err.message);
+            }
+        } finally {
+            document.getElementById('sendBtn').disabled = false;
+        }
+    }
+
+    // ─── UPLOAD (STRICT PDF ENFORCEMENT) ───────
+    function validatePDF(file) {
+        // Check 1: MIME type
+        if (file.type !== 'application/pdf') {
+            showToast('Invalid file type. Only PDF files are accepted.', 'error');
+            return false;
+        }
+
+        // Check 2: Extension
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            showToast('Invalid file extension. Only .pdf files are accepted.', 'error');
+            return false;
+        }
+
+        // Check 3: Size (50MB limit)
+        var MAX_SIZE = 50 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            showToast('File too large. Maximum size is 50MB.', 'error');
+            return false;
+        }
+
+        // Check 4: Not empty
+        if (file.size === 0) {
+            showToast('File is empty.', 'error');
+            return false;
+        }
+
+        return true;
+    }
+
+    async function handleUpload(file) {
+        if (!validatePDF(file)) return;
+
+        var progressEl = document.getElementById('uploadProgress');
+        var progressText = document.getElementById('progressText');
+        var progressFill = document.getElementById('progressFill');
+
+        progressEl.style.display = 'block';
+        progressText.textContent = 'Uploading ' + file.name + '...';
+        progressFill.style.width = '30%';
+
+        try {
+            var formData = new FormData();
+            formData.append('file', file);
+
+            progressFill.style.width = '60%';
+            progressText.textContent = 'Processing and indexing...';
+
+            var res = await fetchWithAuth('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            progressFill.style.width = '100%';
+
+            if (!res.ok) {
+                var errData = await res.json().catch(function() { return {}; });
+                throw new Error(errData.detail || 'Upload failed');
+            }
+
+            await res.json();
+
+            // Add to upload history
+            uploadCount++;
+            var badge = document.getElementById('uploadBadge');
+            badge.textContent = uploadCount;
+            badge.classList.remove('hidden');
+
+            var uploadList = document.getElementById('uploadList');
+            if (uploadCount === 1) {
+                uploadList.innerHTML = '';
+            }
+
+            var item = document.createElement('div');
+            item.classList.add('upload-item');
+            item.innerHTML =
+                '<span class="upload-item-icon">📄</span>' +
+                '<span class="upload-item-name">' + escapeHtml(file.name) + '</span>' +
+                '<span class="upload-item-status">✓ Indexed</span>';
+            uploadList.prepend(item);
+
+            showToast(file.name + ' uploaded and indexed!', 'success');
+            progressText.textContent = 'Complete!';
+
+            setTimeout(function() {
+                progressEl.style.display = 'none';
+                progressFill.style.width = '0%';
+            }, 2000);
+
+        } catch (err) {
+            progressEl.style.display = 'none';
+            progressFill.style.width = '0%';
+            if (err.message !== 'UNAUTHORIZED') {
+                showToast('Upload failed: ' + err.message, 'error');
+            }
+        }
+    }
+
+    // ─── DRAG & DROP ───────────────────────────
+    function setupDragDrop() {
+        var zone = document.getElementById('uploadZone');
+        var fileInput = document.getElementById('fileInput');
+
+        zone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            zone.classList.add('dragover');
+        });
+
+        zone.addEventListener('dragleave', function() {
+            zone.classList.remove('dragover');
+        });
+
+        zone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+            var file = e.dataTransfer.files[0];
+            if (file) handleUpload(file);
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) handleUpload(file);
+            fileInput.value = '';
+        });
+    }
+
+    // ─── TOAST NOTIFICATIONS ───────────────────
+    function showToast(message, type) {
+        type = type || 'success';
+        var container = document.getElementById('toastContainer');
+        var toast = document.createElement('div');
+        toast.classList.add('toast', type);
+
+        var icons = { success: '✓', error: '✕', warning: '⚠' };
+        toast.innerHTML = '<span>' + (icons[type] || '') + '</span> ' + escapeHtml(message);
+
+        container.appendChild(toast);
+        setTimeout(function() { toast.remove(); }, 4000);
+    }
+
+    // ─── MANUAL LOGOUT ─────────────────────────
+    function manualLogout() {
+        autoLogout('You have been logged out.');
+    }
+
+    // ─── UTILITY ───────────────────────────────
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ─── AUTO-RESIZE TEXTAREA ──────────────────
+    function setupAutoResize() {
+        var textarea = document.getElementById('chatInput');
+        textarea.addEventListener('input', function() {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        });
+    }
+
+    // ─── INIT ──────────────────────────────────
+    function init() {
+        setupDragDrop();
+        setupAutoResize();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+
+    // ─── EXPOSE TO WINDOW (onclick handlers) ───
+    window.citadel = {
+        switchAuthTab: switchAuthTab,
+        handleLogin: handleLogin,
+        handleRegister: handleRegister,
+        handleGuestLogin: handleGuestLogin,
+        updatePasswordStrength: updatePasswordStrength,
+        switchPanel: switchPanel,
+        setQuestion: setQuestion,
+        sendMessage: sendMessage,
+        manualLogout: manualLogout
+    };
+
+})();
+</script>
+</body>
+</html>

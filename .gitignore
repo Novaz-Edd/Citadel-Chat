@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Database
+*.db
+
+# Citadel data (user uploads & vector store)
+citadel_vault/
+citadel_memory/
+
+# OS
+.DS_Store
+Thumbs.db
