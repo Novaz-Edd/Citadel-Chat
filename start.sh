@@ -17,12 +17,18 @@ if [ "$DATA_DIR" != "/app" ]; then
     mkdir -p "$OLLAMA_MODELS"
 fi
 
-# 1. Start Ollama server in background
+# 1. Memory optimization — unload models after each request
+# so embedding + chat models don't compete for RAM
+export OLLAMA_KEEP_ALIVE=0
+export OLLAMA_NUM_PARALLEL=1
+export OLLAMA_MAX_LOADED_MODELS=1
+
+# 2. Start Ollama server in background
 echo "📦 Starting Ollama server..."
 ollama serve &
 OLLAMA_PID=$!
 
-# 2. Wait for Ollama to be ready
+# 3. Wait for Ollama to be ready
 echo "⏳ Waiting for Ollama to initialize..."
 MAX_WAIT=60
 WAITED=0
@@ -36,7 +42,7 @@ until curl -s http://localhost:11434/api/tags > /dev/null 2>&1; do
 done
 echo "✅ Ollama is ready!"
 
-# 3. Pull required models (skip if already present)
+# 4. Pull required models (skip if already present)
 MODEL_NAME=${MODEL_NAME:-"qwen2.5:1.5b"}
 EMBEDDING_MODEL=${EMBEDDING_MODEL:-"nomic-embed-text"}
 
@@ -48,7 +54,7 @@ ollama pull "$EMBEDDING_MODEL"
 
 echo "✅ All models ready!"
 
-# 4. Start FastAPI application
+# 5. Start FastAPI application
 PORT=${PORT:-8000}
 echo "🚀 Starting Citadel-Chat on port $PORT..."
 exec python main.py
