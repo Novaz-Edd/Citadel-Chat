@@ -28,11 +28,12 @@ from pydantic import BaseModel, ConfigDict
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from langchain_chroma import Chroma
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
+from langchain_groq import ChatGroq
+from langchain_huggingface import HuggingFaceEmbeddings
 
 # -------------------------------------------------------------------------
 # 2. CONFIGURATION
@@ -47,9 +48,9 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _DATA_DIR = os.getenv("DATA_DIR", _SCRIPT_DIR)
 UPLOAD_DIR = os.path.join(_DATA_DIR, "citadel_vault")
 PERSIST_DIR = os.path.join(_DATA_DIR, "citadel_memory")
-MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:1.5b")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Create directories if they don't exist
@@ -465,7 +466,7 @@ async def upload_file(
         chunk.metadata["source"] = file.filename
 
     # Create embeddings and store in ChromaDB
-    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
     vector_db = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
@@ -498,7 +499,7 @@ async def chat(
 
     Features:
     - Conversational memory (last 6 messages injected into prompt)
-    - Local Ollama RAG only (no external API calls)
+    - Uses Groq API for LLM and HuggingFace for embeddings
     """
     # ── 1. Save the incoming user message ────────────────────────────
     user_msg = Message(
@@ -529,7 +530,7 @@ async def chat(
     #    If the user says "and..", "more", "tell me anything", etc.,
     #    the retriever can't find relevant docs. We use the LLM to
     #    rewrite the question using chat history so retrieval works.
-    llm = OllamaLLM(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
+    llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0)
 
     rewrite_prompt = PromptTemplate(
         template=(
@@ -559,7 +560,7 @@ async def chat(
             pass  # Fall back to original question
 
     # ── 4. RAG Pipeline ─────────────────────────────────────────────
-    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
     vectorstore = Chroma(
         persist_directory=PERSIST_DIR,
         embedding_function=embeddings,

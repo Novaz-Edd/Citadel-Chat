@@ -9,28 +9,22 @@ services:
   - type: web
     name: citadel-chat
     runtime: docker
-    plan: standard  # Requires Standard plan (2GB RAM minimum for LLM)
+    plan: free
     dockerfilePath: ./Dockerfile
     envVars:
       - key: SECRET_KEY
         generateValue: true
       - key: PORT
         value: 8000
-      - key: MODEL_NAME
-        value: qwen2.5:1.5b
+      - key: GROQ_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
       - key: EMBEDDING_MODEL
-        value: nomic-embed-text
-      - key: OLLAMA_BASE_URL
-        value: http://localhost:11434
-      - key: OLLAMA_KEEP_ALIVE
-        value: "0"
-      - key: OLLAMA_NUM_PARALLEL
-        value: "1"
-      - key: OLLAMA_MAX_LOADED_MODELS
-        value: "1"
+        value: all-MiniLM-L6-v2
       - key: DATA_DIR
         value: /app/data
     disk:
       name: citadel-data
       mountPath: /app/data
-      sizeGB: 10
+      sizeGB: 1

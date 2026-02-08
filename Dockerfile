@@ -1,17 +1,13 @@
 # ─────────────────────────────────────────────
 # Citadel-Chat Dockerfile
-# FastAPI + Ollama (all-in-one)
+# FastAPI + Groq API (lightweight, no Ollama)
 # ─────────────────────────────────────────────
 FROM python:3.11-slim
 
-# Install system dependencies (including zstd required by Ollama installer)
+# Install minimal system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    zstd \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Ollama
-RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # Set working directory
 WORKDIR /app
@@ -26,16 +22,12 @@ COPY . .
 # Create data directories
 RUN mkdir -p citadel_vault citadel_memory
 
-# Make start script executable
-COPY start.sh .
-RUN chmod +x start.sh
-
 # Expose port (Render uses PORT env var)
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/docs || exit 1
 
-# Start everything
-CMD ["./start.sh"]
+# Start the application
+CMD ["python", "main.py"]
