@@ -4,9 +4,10 @@
 # ─────────────────────────────────────────────
 FROM python:3.11-slim
 
-# Install system dependencies
+# Install system dependencies (including zstd required by Ollama installer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    zstd \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Ollama
