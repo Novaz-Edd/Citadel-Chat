@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────
+# Citadel-Chat: Local Development with Docker
+# ─────────────────────────────────────────────
+# Usage: docker compose up --build
+# ─────────────────────────────────────────────
+
+services:
+  citadel-chat:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - SECRET_KEY=citadel_master_key_change_me
+      - MODEL_NAME=qwen2.5:1.5b
+      - EMBEDDING_MODEL=nomic-embed-text
+      - OLLAMA_BASE_URL=http://localhost:11434
+    volumes:
+      # Persist data across restarts
+      - citadel-uploads:/app/citadel_vault
+      - citadel-memory:/app/citadel_memory
+      - citadel-db:/app
+    restart: unless-stopped
+
+volumes:
+  citadel-uploads:
+  citadel-memory:
+  citadel-db:

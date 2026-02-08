@@ -10,22 +10,21 @@
 import os
 import shutil
 import uuid
-from typing import List, Optional
+from typing import List
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
-from sqlalchemy import create_engine, Column, Integer, String, Boolean
+
 from sqlalchemy.orm import declarative_base, sessionmaker
-
 import bcrypt
 from jose import jwt, JWTError
-
-from pydantic import BaseModel
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
+from pydantic import BaseModel, ConfigDict
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -38,22 +37,31 @@ from langchain_core.runnables import RunnablePassthrough
 # -------------------------------------------------------------------------
 # 2. CONFIGURATION
 # -------------------------------------------------------------------------
-SECRET_KEY = "citadel_master_key_change_me"
+SECRET_KEY = os.getenv("SECRET_KEY", "citadel_master_key_change_me")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-UPLOAD_DIR = "citadel_vault"       # Secure storage for PDFs
-PERSIST_DIR = "citadel_memory"     # Vector DB storage
-MODEL_NAME = "qwen2.5:1.5b"
-EMBEDDING_MODEL = "nomic-embed-text"
+# Use absolute paths based on script location
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Use DATA_DIR env var for persistent storage (Render disk), else local
+_DATA_DIR = os.getenv("DATA_DIR", _SCRIPT_DIR)
+UPLOAD_DIR = os.path.join(_DATA_DIR, "citadel_vault")
+PERSIST_DIR = os.path.join(_DATA_DIR, "citadel_memory")
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:1.5b")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+PORT = int(os.getenv("PORT", "8000"))
 
 # Create directories if they don't exist
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(PERSIST_DIR, exist_ok=True)
 
 # -------------------------------------------------------------------------
 # 3. DATABASE SETUP (SQLite)
 # -------------------------------------------------------------------------
-DB_URL = "sqlite:///./citadel_users.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(_DATA_DIR, "citadel_users.db")
+DB_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -82,6 +90,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Global Exception Handler (always return JSON, never plain text) ──
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch any unhandled exception and return a JSON error response."""
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"},
+    )
+
+
 # Serve the frontend
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
@@ -107,10 +125,47 @@ class User(Base):
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
     plan_type = Column(String, default="free")
+    role = Column(String, default="client")
+
+
+class Message(Base):
+    """Stores chat messages for conversational memory."""
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(String, nullable=False)
+    sender = Column(String, nullable=False)  # "user" or "ai"
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
 
 # Create all tables in the database
 Base.metadata.create_all(bind=engine)
+
+
+# ── Auto-create default admin account on startup ──
+def _create_default_admin():
+    """Create a default admin user if none exists."""
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter(User.role == "admin").first()
+        if not admin:
+            hashed = bcrypt.hashpw("admin123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            admin_user = User(
+                username="admin",
+                hashed_password=hashed,
+                role="admin",
+                plan_type="admin",
+            )
+            db.add(admin_user)
+            db.commit()
+            print("[Citadel] Default admin created — username: admin / password: admin123")
+        else:
+            print(f"[Citadel] Admin account exists: {admin.username}")
+    finally:
+        db.close()
+
+_create_default_admin()
 
 
 # -------------------------------------------------------------------------
@@ -174,6 +229,16 @@ async def get_current_user(
     return user
 
 
+async def check_admin(current_user: User = Depends(get_current_user)):
+    """Dependency that ensures the current user has admin privileges."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
+
+
 # =========================================================================
 # STEP 3 - AUTH API ENDPOINTS
 # =========================================================================
@@ -189,6 +254,16 @@ class UserCreate(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class UserResponse(BaseModel):
+    """Public user representation (excludes password)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    role: str
+    plan_type: str
 
 
 # -------------------------------------------------------------------------
@@ -229,9 +304,18 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
             detail="Incorrect username or password",
         )
 
-    # Create and return the access token
-    access_token = create_access_token(data={"sub": user.username})
+    # Create and return the access token (include role for frontend)
+    access_token = create_access_token(data={"sub": user.username, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+# -------------------------------------------------------------------------
+# 4. CURRENT USER INFO ENDPOINT
+# -------------------------------------------------------------------------
+@app.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    """Return the authenticated user's profile (role, plan, etc.)."""
+    return current_user
 
 
 # =========================================================================
@@ -262,8 +346,83 @@ def guest_login(db=Depends(get_db)):
     db.refresh(new_user)
 
     # Issue a JWT token for the guest
-    access_token = create_access_token(data={"sub": guest_username})
+    access_token = create_access_token(data={"sub": guest_username, "role": "guest"})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+# =========================================================================
+# STEP 3.6 - ADMIN PANEL (Role-Based Access)
+# =========================================================================
+
+@app.get("/admin/users", response_model=List[UserResponse])
+def list_all_users(
+    admin: User = Depends(check_admin),
+    db=Depends(get_db),
+):
+    """Return a list of all registered users. Admin only."""
+    users = db.query(User).all()
+    return users
+
+
+@app.delete("/admin/users/{user_id}")
+def delete_user(
+    user_id: int,
+    admin: User = Depends(check_admin),
+    db=Depends(get_db),
+):
+    """Delete a user by ID. Admin only."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role == "admin":
+        raise HTTPException(status_code=400, detail="Cannot delete an admin account")
+    # Delete user's messages too
+    db.query(Message).filter(Message.user_id == user_id).delete()
+    db.delete(user)
+    db.commit()
+    return {"message": f"User '{user.username}' (ID: {user_id}) deleted successfully."}
+
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str
+
+
+@app.put("/admin/users/{user_id}/reset-password")
+def admin_reset_password(
+    user_id: int,
+    body: ResetPasswordRequest,
+    admin: User = Depends(check_admin),
+    db=Depends(get_db),
+):
+    """Reset a user's password. Admin only."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.hashed_password = get_password_hash(body.new_password)
+    db.commit()
+    return {"message": f"Password for '{user.username}' has been reset."}
+
+
+class ChangeRoleRequest(BaseModel):
+    role: str
+
+
+@app.put("/admin/users/{user_id}/role")
+def change_user_role(
+    user_id: int,
+    body: ChangeRoleRequest,
+    admin: User = Depends(check_admin),
+    db=Depends(get_db),
+):
+    """Change a user's role. Admin only."""
+    if body.role not in ("client", "admin", "guest"):
+        raise HTTPException(status_code=400, detail="Role must be 'client', 'admin', or 'guest'")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.role = body.role
+    db.commit()
+    return {"message": f"User '{user.username}' role changed to '{body.role}'."}
 
 
 # =========================================================================
@@ -306,7 +465,7 @@ async def upload_file(
         chunk.metadata["source"] = file.filename
 
     # Create embeddings and store in ChromaDB
-    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
+    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
     vector_db = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
@@ -333,16 +492,80 @@ async def upload_file(
 async def chat(
     request: ChatRequest,
     current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
 ):
-    """Ask a question against the user's private knowledge vault."""
-    # Initialize embeddings and load the vector store
-    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
+    """Ask a question against the user's private knowledge vault.
+
+    Features:
+    - Conversational memory (last 6 messages injected into prompt)
+    - Local Ollama RAG only (no external API calls)
+    """
+    # ── 1. Save the incoming user message ────────────────────────────
+    user_msg = Message(
+        user_id=current_user.id,
+        content=request.question,
+        sender="user",
+    )
+    db.add(user_msg)
+    db.commit()
+    db.refresh(user_msg)
+
+    # ── 2. Build Chat History (last 6 messages) ─────────────────────
+    recent_messages = (
+        db.query(Message)
+        .filter(Message.user_id == current_user.id)
+        .order_by(Message.id.desc())
+        .limit(6)
+        .all()
+    )
+    recent_messages.reverse()
+
+    chat_history = ""
+    for msg in recent_messages:
+        role = "User" if msg.sender == "user" else "AI"
+        chat_history += f"{role}: {msg.content}\n"
+
+    # ── 3. Rewrite vague follow-ups into standalone queries ─────────
+    #    If the user says "and..", "more", "tell me anything", etc.,
+    #    the retriever can't find relevant docs. We use the LLM to
+    #    rewrite the question using chat history so retrieval works.
+    llm = OllamaLLM(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
+
+    rewrite_prompt = PromptTemplate(
+        template=(
+            "Given the following conversation history and a follow-up question, "
+            "rewrite the follow-up question as a standalone search query that "
+            "captures what the user is really asking about. "
+            "If the question is already clear and specific, return it unchanged.\n\n"
+            "Chat History:\n{chat_history}\n\n"
+            "Follow-up Question: {question}\n\n"
+            "Standalone search query:"
+        ),
+        input_variables=["chat_history", "question"],
+    )
+
+    search_query = request.question
+    # Only rewrite if there's chat history (follow-up scenario)
+    if chat_history.strip():
+        try:
+            rewritten = (rewrite_prompt | llm | StrOutputParser()).invoke({
+                "chat_history": chat_history,
+                "question": request.question,
+            })
+            rewritten = rewritten.strip()
+            if rewritten:
+                search_query = rewritten
+        except Exception:
+            pass  # Fall back to original question
+
+    # ── 4. RAG Pipeline ─────────────────────────────────────────────
+    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
     vectorstore = Chroma(
         persist_directory=PERSIST_DIR,
         embedding_function=embeddings,
     )
 
-    # Create a retriever with an owner_id filter for data isolation
+    # Retriever with owner_id filter for data isolation
     retriever = vectorstore.as_retriever(
         search_kwargs={
             "k": 4,
@@ -350,42 +573,49 @@ async def chat(
         }
     )
 
-    # Initialize the LLM
-    llm = OllamaLLM(model="qwen2.5:1.5b")
-
-    # Define the prompt template
+    # Prompt: conversational, uses chat history, continues naturally
     prompt_template = PromptTemplate(
         template=(
-            "Answer the question strictly based on the provided context. "
-            "If the context does not contain the answer, say "
+            "You are a helpful assistant that answers questions based on the user's "
+            "uploaded documents. Use the provided context and chat history to give "
+            "thorough, informative answers. If the user asks a follow-up or says "
+            "something like 'and', 'more', 'continue', 'tell me more', expand on "
+            "your previous answer using the context.\n\n"
+            "If the context truly contains nothing relevant at all, say "
             "'I don't have enough information in your vault to answer that.'\n\n"
-            "Context:\n{context}\n\n"
+            "Chat History:\n{chat_history}\n\n"
+            "Context from documents:\n{context}\n\n"
             "Question: {question}\n\n"
             "Answer:"
         ),
-        input_variables=["context", "question"],
+        input_variables=["context", "question", "chat_history"],
     )
 
-    # Helper to format retrieved documents into a single context string
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-    # Build the LCEL RAG chain
-    rag_chain = (
-        {"context": retriever | format_docs, "question": RunnablePassthrough()}
-        | prompt_template
-        | llm
-        | StrOutputParser()
-    )
+    # Use the rewritten query for retrieval, but pass original question to prompt
+    source_docs = retriever.invoke(search_query)
+    context_text = format_docs(source_docs)
 
-    # Also retrieve source documents separately for the response
-    source_docs = retriever.invoke(request.question)
-    answer = rag_chain.invoke(request.question)
+    answer = (prompt_template | llm | StrOutputParser()).invoke({
+        "context": context_text,
+        "question": request.question,
+        "chat_history": chat_history,
+    })
 
-    # Extract unique source filenames
     sources = list(
         {doc.metadata.get("source", "unknown") for doc in source_docs}
     )
+
+    # ── 5. Save AI response ─────────────────────────────────────────
+    ai_msg = Message(
+        user_id=current_user.id,
+        content=answer,
+        sender="ai",
+    )
+    db.add(ai_msg)
+    db.commit()
 
     return {
         "answer": answer,
@@ -398,4 +628,4 @@ async def chat(
 # =========================================================================
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

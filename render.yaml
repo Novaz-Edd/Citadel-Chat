@@ -1,0 +1,30 @@
+# ─────────────────────────────────────────────
+# Citadel-Chat: Render.com Blueprint
+# ─────────────────────────────────────────────
+# Deploy: Connect your GitHub repo to Render
+# and it will auto-detect this file.
+# ─────────────────────────────────────────────
+
+services:
+  - type: web
+    name: citadel-chat
+    runtime: docker
+    plan: standard  # Requires Standard plan (2GB RAM minimum for LLM)
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PORT
+        value: 8000
+      - key: MODEL_NAME
+        value: qwen2.5:1.5b
+      - key: EMBEDDING_MODEL
+        value: nomic-embed-text
+      - key: OLLAMA_BASE_URL
+        value: http://localhost:11434
+      - key: DATA_DIR
+        value: /app/data
+    disk:
+      name: citadel-data
+      mountPath: /app/data
+      sizeGB: 10

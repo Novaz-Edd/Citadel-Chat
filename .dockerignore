@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.db
+citadel_vault/
+citadel_memory/
+.git/
+.gitignore
+*.md
+docker-compose.yml
+render.yaml
+.env

@@ -229,6 +229,27 @@
 
         .guest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        .admin-login-btn {
+            width: 100%;
+            padding: 13px;
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 12px;
+        }
+
+        .admin-login-btn:hover {
+            border-color: var(--danger);
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        .admin-login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
         .guest-label {
             background: rgba(245, 158, 11, 0.15);
             color: var(--warning);
@@ -723,6 +744,185 @@
         }
 
         .hidden { display: none !important; }
+
+        /* ═══ ADMIN PANEL ═══ */
+        .admin-panel-inner {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .admin-header h3 {
+            color: var(--text-primary);
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .admin-refresh-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .admin-refresh-btn:hover { background: var(--accent-hover); }
+
+        .admin-stats {
+            display: flex;
+            gap: 12px;
+            padding: 20px 24px;
+            flex-shrink: 0;
+        }
+
+        .admin-stat-card {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            transition: var(--transition);
+        }
+
+        .admin-stat-card:hover { border-color: var(--border-hover); }
+
+        .admin-stat-number {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .admin-stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .admin-user-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 24px 24px;
+        }
+
+        .admin-user-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 10px;
+            transition: var(--transition);
+        }
+
+        .admin-user-card:hover { border-color: var(--border-hover); }
+
+        .admin-user-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .admin-user-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .admin-user-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+        }
+
+        .admin-user-name {
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        .admin-user-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .admin-role-badge {
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .admin-action-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+        }
+
+        .admin-action-btn:hover {
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+
+        .admin-action-btn.danger { color: var(--danger); }
+        .admin-action-btn.danger:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); }
+
+        .admin-action-btn.accent { color: var(--accent); }
+        .admin-action-btn.accent:hover { background: rgba(59,130,246,0.1); border-color: var(--accent); }
+
+        .admin-action-btn.warning { color: var(--warning); }
+        .admin-action-btn.warning:hover { background: rgba(245,158,11,0.1); border-color: var(--warning); }
+
+        .admin-action-btn.success { color: var(--success); }
+        .admin-action-btn.success:hover { background: rgba(16,185,129,0.1); border-color: var(--success); }
+
+        .admin-protected {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-style: italic;
+            padding: 7px 14px;
+        }
     </style>
 </head>
 <body>
@@ -783,6 +983,24 @@
             </div>
             <button type="submit" class="auth-btn" id="regBtn">Create Account</button>
         </form>
+
+        <!-- Admin Login -->
+        <div class="auth-divider" id="adminDivider" style="margin-top: 24px;">admin access</div>
+        <button class="admin-login-btn" id="adminLoginBtn" onclick="window.citadel.handleAdminLogin()">🔐 Admin Login</button>
+
+        <!-- Admin Login Form (hidden by default) -->
+        <form id="adminLoginForm" class="hidden" onsubmit="window.citadel.submitAdminLogin(event)" style="margin-top: 12px;">
+            <div class="form-group">
+                <label style="color: var(--danger);">Admin Username</label>
+                <input type="text" id="adminUser" placeholder="Admin username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label style="color: var(--danger);">Admin Password</label>
+                <input type="password" id="adminPass" placeholder="Admin password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="auth-btn" id="adminBtn" style="background: var(--danger);">🔐 Sign In as Admin</button>
+            <button type="button" class="guest-btn" style="margin-top: 8px; font-size: 12px;" onclick="window.citadel.cancelAdminLogin()">Cancel</button>
+        </form>
     </div>
 </div>
 
@@ -808,6 +1026,9 @@
                 <div class="nav-item" onclick="window.citadel.switchPanel('upload')">
                     <span class="nav-icon">📄</span> Upload
                     <span class="nav-badge hidden" id="uploadBadge">0</span>
+                </div>
+                <div class="nav-item hidden" id="adminNavItem" onclick="window.citadel.switchPanel('admin')">
+                    <span class="nav-icon">⚙️</span> Admin
                 </div>
             </nav>
 
@@ -891,6 +1112,20 @@
                 </div>
             </div>
 
+            <!-- Admin Panel -->
+            <div class="upload-panel" id="adminPanel" style="display:none;">
+                <div class="admin-panel-inner">
+                    <div class="admin-header">
+                        <h3>⚙️ User Management</h3>
+                        <button class="admin-refresh-btn" onclick="window.citadel.loadAdminUsers()">↻ Refresh</button>
+                    </div>
+                    <div id="adminStats" class="admin-stats"></div>
+                    <div class="admin-user-list" id="adminUserList">
+                        <p style="color: var(--text-muted); font-size: 13px; padding: 20px;">Loading users...</p>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 </div>
@@ -912,6 +1147,7 @@
     let sessionInterval = null;
     let sessionExpiry = null;
     let uploadCount = 0;
+    let isAdmin = false;
     const SESSION_DURATION_MS = 60 * 60 * 1000; // 60 minutes
 
     // ─── AUTO-LOGOUT PROTOCOL ──────────────────
@@ -938,6 +1174,9 @@
 
         // Reset upload state
         uploadCount = 0;
+        isAdmin = false;
+        var adminNavEl = document.getElementById('adminNavItem');
+        if (adminNavEl) adminNavEl.classList.add('hidden');
         const uploadBadge = document.getElementById('uploadBadge');
         if (uploadBadge) {
             uploadBadge.classList.add('hidden');
@@ -1067,6 +1306,10 @@
         var tabs = document.querySelectorAll('.auth-tab');
         tabs.forEach(function(t) { t.classList.remove('active'); });
         document.getElementById('authError').style.display = 'none';
+
+        // Always collapse admin login form when switching tabs
+        document.getElementById('adminLoginForm').classList.add('hidden');
+        document.getElementById('adminLoginBtn').style.display = '';
 
         if (tab === 'login') {
             tabs[0].classList.add('active');
@@ -1234,6 +1477,34 @@
         document.getElementById('authScreen').style.display = 'none';
         document.getElementById('appScreen').style.display = 'block';
 
+        // Detect role from JWT token (role is now embedded in claims)
+        isAdmin = false;
+        try {
+            var payload = JSON.parse(atob(authToken.split('.')[1]));
+            currentUser = payload.sub || currentUser;
+            if (payload.role === 'admin') {
+                isAdmin = true;
+            }
+        } catch (e) {}
+
+        // Show/hide admin nav based on role
+        if (isAdmin) {
+            document.getElementById('adminNavItem').classList.remove('hidden');
+        } else {
+            document.getElementById('adminNavItem').classList.add('hidden');
+        }
+
+        // Double-check with backend (verify DB role matches)
+        fetchWithAuth('/me').then(function(res) {
+            if (res.ok) return res.json();
+            return null;
+        }).then(function(user) {
+            if (user && user.role === 'admin') {
+                isAdmin = true;
+                document.getElementById('adminNavItem').classList.remove('hidden');
+            }
+        }).catch(function() {});
+
         // Set user info
         var displayName = currentUser;
         document.getElementById('userName').textContent = displayName;
@@ -1281,16 +1552,24 @@
         var navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(function(n) { n.classList.remove('active'); });
 
+        document.getElementById('chatPanel').style.display = 'none';
+        document.getElementById('uploadPanel').style.display = 'none';
+        document.getElementById('adminPanel').style.display = 'none';
+
         if (panel === 'chat') {
             navItems[0].classList.add('active');
             document.getElementById('chatPanel').style.display = 'flex';
-            document.getElementById('uploadPanel').style.display = 'none';
             document.getElementById('panelTitle').textContent = '💬 Secure Chat';
-        } else {
+        } else if (panel === 'upload') {
             navItems[1].classList.add('active');
-            document.getElementById('chatPanel').style.display = 'none';
             document.getElementById('uploadPanel').style.display = 'flex';
             document.getElementById('panelTitle').textContent = '📄 Document Upload';
+        } else if (panel === 'admin') {
+            var adminNav = document.getElementById('adminNavItem');
+            if (adminNav) adminNav.classList.add('active');
+            document.getElementById('adminPanel').style.display = 'flex';
+            document.getElementById('panelTitle').textContent = '⚙️ Admin Panel';
+            loadAdminUsers();
         }
     }
 
@@ -1544,6 +1823,234 @@
         setTimeout(function() { toast.remove(); }, 4000);
     }
 
+    // ─── ADMIN PANEL ─────────────────────────
+    async function loadAdminUsers() {
+        var container = document.getElementById('adminUserList');
+        var statsContainer = document.getElementById('adminStats');
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px; padding: 20px;">Loading users...</p>';
+
+        try {
+            var res = await fetchWithAuth('/admin/users');
+            if (!res.ok) {
+                container.innerHTML = '<p style="color: var(--danger); padding: 20px;">Access denied.</p>';
+                return;
+            }
+            var users = await res.json();
+            container.innerHTML = '';
+
+            // Stats
+            var totalUsers = users.length;
+            var admins = users.filter(function(u) { return u.role === 'admin'; }).length;
+            var guests = users.filter(function(u) { return u.plan_type === 'guest'; }).length;
+            var clients = totalUsers - admins - guests;
+            statsContainer.innerHTML =
+                '<div class="admin-stat-card">' +
+                    '<div class="admin-stat-number" style="color:var(--accent);">' + totalUsers + '</div>' +
+                    '<div class="admin-stat-label">Total Users</div></div>' +
+                '<div class="admin-stat-card">' +
+                    '<div class="admin-stat-number" style="color:var(--success);">' + clients + '</div>' +
+                    '<div class="admin-stat-label">Clients</div></div>' +
+                '<div class="admin-stat-card">' +
+                    '<div class="admin-stat-number" style="color:var(--warning);">' + guests + '</div>' +
+                    '<div class="admin-stat-label">Guests</div></div>' +
+                '<div class="admin-stat-card">' +
+                    '<div class="admin-stat-number" style="color:var(--danger);">' + admins + '</div>' +
+                    '<div class="admin-stat-label">Admins</div></div>';
+
+            // User cards
+            users.forEach(function(user) {
+                var card = document.createElement('div');
+                card.className = 'admin-user-card';
+
+                var isAdminUser = user.role === 'admin';
+                var isGuestUser = user.plan_type === 'guest';
+                var avatarBg = isAdminUser ? 'var(--danger)' : (isGuestUser ? 'var(--warning)' : 'var(--accent)');
+                var roleColor = isAdminUser ? 'var(--danger)' : (isGuestUser ? 'var(--warning)' : 'var(--success)');
+                var roleBgColor = isAdminUser ? 'rgba(239,68,68,0.15)' : (isGuestUser ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)');
+
+                var safeUsername = escapeHtml(user.username);
+                var actionsHtml = '';
+
+                if (!isAdminUser) {
+                    // Role change dropdown
+                    var roleOptions = '';
+                    if (user.role !== 'client') roleOptions += '<button class="admin-action-btn success" onclick="window.citadel.adminChangeRole(' + user.id + ', \'' + safeUsername + '\', \'client\')">→ Client</button>';
+                    if (user.role !== 'admin') roleOptions += '<button class="admin-action-btn warning" onclick="window.citadel.adminChangeRole(' + user.id + ', \'' + safeUsername + '\', \'admin\')">→ Admin</button>';
+                    if (user.role !== 'guest') roleOptions += '<button class="admin-action-btn" onclick="window.citadel.adminChangeRole(' + user.id + ', \'' + safeUsername + '\', \'guest\')">→ Guest</button>';
+
+                    actionsHtml =
+                        '<div class="admin-actions">' +
+                            '<button class="admin-action-btn accent" onclick="window.citadel.adminResetPassword(' + user.id + ', \'' + safeUsername + '\')" title="Reset Password">🔑 Reset Password</button>' +
+                            roleOptions +
+                            '<button class="admin-action-btn danger" onclick="window.citadel.adminDeleteUser(' + user.id + ', \'' + safeUsername + '\')" title="Delete User">🗑️ Delete</button>' +
+                        '</div>';
+                } else {
+                    actionsHtml = '<div class="admin-actions"><span class="admin-protected">🛡️ Protected admin account</span></div>';
+                }
+
+                card.innerHTML =
+                    '<div class="admin-user-top">' +
+                        '<div class="admin-user-info">' +
+                            '<div class="admin-user-avatar" style="background:' + avatarBg + ';">' +
+                                safeUsername.charAt(0).toUpperCase() +
+                            '</div>' +
+                            '<div>' +
+                                '<div class="admin-user-name">' + safeUsername +
+                                    ' <span class="admin-role-badge" style="background:' + roleBgColor + '; color:' + roleColor + ';">' + escapeHtml(user.role) + '</span>' +
+                                '</div>' +
+                                '<div class="admin-user-meta">ID: ' + user.id + ' · Plan: ' + escapeHtml(user.plan_type) + ' · Password: ••••••••</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    actionsHtml;
+
+                container.appendChild(card);
+            });
+
+        } catch (err) {
+            if (err.message !== 'UNAUTHORIZED') {
+                container.innerHTML = '<p style="color: var(--danger); padding: 20px;">Failed to load users.</p>';
+            }
+        }
+    }
+
+    async function adminDeleteUser(userId, username) {
+        if (!confirm('Are you sure you want to delete user "' + username + '"? This cannot be undone.')) return;
+        try {
+            var res = await fetchWithAuth('/admin/users/' + userId, { method: 'DELETE' });
+            if (!res.ok) {
+                var err = await res.json().catch(function() { return {}; });
+                showToast(err.detail || 'Delete failed', 'error');
+                return;
+            }
+            showToast('User "' + username + '" deleted.', 'success');
+            loadAdminUsers();
+        } catch (err) {
+            if (err.message !== 'UNAUTHORIZED') showToast('Delete failed: ' + err.message, 'error');
+        }
+    }
+
+    async function adminResetPassword(userId, username) {
+        var newPassword = prompt('Enter new password for "' + username + '":');
+        if (!newPassword || newPassword.length < 6) {
+            if (newPassword !== null) showToast('Password must be at least 6 characters.', 'error');
+            return;
+        }
+        try {
+            var res = await fetchWithAuth('/admin/users/' + userId + '/reset-password', {
+                method: 'PUT',
+                body: JSON.stringify({ new_password: newPassword })
+            });
+            if (!res.ok) {
+                var err = await res.json().catch(function() { return {}; });
+                showToast(err.detail || 'Reset failed', 'error');
+                return;
+            }
+            showToast('Password reset for "' + username + '".', 'success');
+        } catch (err) {
+            if (err.message !== 'UNAUTHORIZED') showToast('Reset failed: ' + err.message, 'error');
+        }
+    }
+
+    async function adminChangeRole(userId, username, newRole) {
+        if (!confirm('Change "' + username + '" role to "' + newRole + '"?')) return;
+        try {
+            var res = await fetchWithAuth('/admin/users/' + userId + '/role', {
+                method: 'PUT',
+                body: JSON.stringify({ role: newRole })
+            });
+            if (!res.ok) {
+                var err = await res.json().catch(function() { return {}; });
+                showToast(err.detail || 'Role change failed', 'error');
+                return;
+            }
+            showToast('"' + username + '" is now ' + newRole + '.', 'success');
+            loadAdminUsers();
+        } catch (err) {
+            if (err.message !== 'UNAUTHORIZED') showToast('Role change failed: ' + err.message, 'error');
+        }
+    }
+
+    // ─── ADMIN LOGIN (Auth Screen) ────────────
+    function handleAdminLogin() {
+        // Toggle the admin login form
+        var form = document.getElementById('adminLoginForm');
+        var btn = document.getElementById('adminLoginBtn');
+        if (form.classList.contains('hidden')) {
+            form.classList.remove('hidden');
+            btn.style.display = 'none';
+            document.getElementById('adminUser').focus();
+        } else {
+            form.classList.add('hidden');
+            btn.style.display = '';
+        }
+    }
+
+    function cancelAdminLogin() {
+        document.getElementById('adminLoginForm').classList.add('hidden');
+        document.getElementById('adminLoginBtn').style.display = '';
+    }
+
+    async function submitAdminLogin(e) {
+        e.preventDefault();
+        var btn = document.getElementById('adminBtn');
+        btn.disabled = true;
+        btn.textContent = 'Verifying...';
+
+        try {
+            var username = document.getElementById('adminUser').value.trim();
+            var password = document.getElementById('adminPass').value;
+
+            var formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            var res = await fetch('/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+
+            if (!res.ok) {
+                var err = await res.json();
+                throw new Error(err.detail || 'Invalid credentials');
+            }
+
+            var data = await res.json();
+            authToken = data.access_token;
+            currentUser = username;
+            isGuest = false;
+
+            // Verify admin role from JWT
+            try {
+                var payload = JSON.parse(atob(authToken.split('.')[1]));
+                if (payload.role !== 'admin') {
+                    authToken = null;
+                    currentUser = null;
+                    throw new Error('This account does not have admin privileges.');
+                }
+            } catch (parseErr) {
+                if (parseErr.message.includes('admin privileges')) throw parseErr;
+                throw new Error('Failed to verify admin role.');
+            }
+
+            showToast('Admin access granted!', 'success');
+            enterApp();
+            // Auto-navigate to admin panel
+            switchPanel('admin');
+
+        } catch (err) {
+            if (err.message === 'Failed to fetch') {
+                showAuthError('Cannot reach server. Is the backend running on port 8000?');
+            } else {
+                showAuthError(err.message);
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔐 Sign In as Admin';
+        }
+    }
+
     // ─── MANUAL LOGOUT ─────────────────────────
     function manualLogout() {
         autoLogout('You have been logged out.');
@@ -1579,11 +2086,18 @@
         handleLogin: handleLogin,
         handleRegister: handleRegister,
         handleGuestLogin: handleGuestLogin,
+        handleAdminLogin: handleAdminLogin,
+        submitAdminLogin: submitAdminLogin,
+        cancelAdminLogin: cancelAdminLogin,
         updatePasswordStrength: updatePasswordStrength,
         switchPanel: switchPanel,
         setQuestion: setQuestion,
         sendMessage: sendMessage,
-        manualLogout: manualLogout
+        manualLogout: manualLogout,
+        loadAdminUsers: loadAdminUsers,
+        adminDeleteUser: adminDeleteUser,
+        adminResetPassword: adminResetPassword,
+        adminChangeRole: adminChangeRole
     };
 
 })();
