@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citadel Chat Logo Download</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0e17 0%, #111827 100%);
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            text-align: center;
+            background: #151d2e;
+            padding: 40px;
+            border-radius: 10px;
+            border: 1px solid #1e293b;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.1);
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 28px;
+            color: #3b82f6;
+        }
+
+        p {
+            color: #94a3b8;
+            margin-bottom: 30px;
+        }
+
+        .logo-preview {
+            background: #0a0e17;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .logo-preview svg {
+            width: 200px;
+            height: 200px;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 200ms ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: #1e293b;
+            color: #94a3b8;
+            border: 1px solid #334155;
+        }
+
+        .btn-secondary:hover {
+            background: #334155;
+            color: #f1f5f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Citadel Chat Logo</h1>
+        <p>Right-click below to save the logo, or use the download buttons</p>
+
+        <div class="logo-preview">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="fortressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+                    </linearGradient>
+                    <radialGradient id="glowEffect">
+                        <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:0.3" />
+                        <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0" />
+                    </radialGradient>
+                </defs>
+
+                <circle cx="100" cy="100" r="95" fill="url(#glowEffect)" />
+                <path d="M 100 30 L 170 60 L 170 110 Q 170 150 100 170 Q 30 150 30 110 L 30 60 Z" 
+                      fill="url(#fortressGradient)" stroke="#1e293b" stroke-width="2"/>
+                <rect x="80" y="55" width="40" height="70" fill="#0a0e17" stroke="#3b82f6" stroke-width="2"/>
+                <rect x="75" y="50" width="8" height="12" fill="#3b82f6"/>
+                <rect x="92" y="50" width="8" height="12" fill="#3b82f6"/>
+                <rect x="117" y="50" width="8" height="12" fill="#3b82f6"/>
+
+                <circle cx="100" cy="70" r="6" fill="#3b82f6" opacity="0.8"/>
+                <circle cx="100" cy="70" r="8" fill="#3b82f6" opacity="0.3"/>
+
+                <line x1="85" y1="65" x2="115" y2="65" stroke="#3b82f6" stroke-width="1.5" opacity="0.6"/>
+                <line x1="85" y1="80" x2="115" y2="80" stroke="#3b82f6" stroke-width="1.5" opacity="0.6"/>
+                <line x1="85" y1="95" x2="115" y2="95" stroke="#3b82f6" stroke-width="1.5" opacity="0.6"/>
+                <line x1="85" y1="110" x2="115" y2="110" stroke="#3b82f6" stroke-width="1.5" opacity="0.6"/>
+
+                <path d="M 65 85 L 50 100" stroke="#3b82f6" stroke-width="1.5" opacity="0.5"/>
+                <path d="M 135 85 L 150 100" stroke="#3b82f6" stroke-width="1.5" opacity="0.5"/>
+
+                <circle cx="70" cy="125" r="3" fill="#3b82f6" opacity="0.7"/>
+                <circle cx="100" cy="135" r="3" fill="#3b82f6" opacity="0.7"/>
+                <circle cx="130" cy="125" r="3" fill="#3b82f6" opacity="0.7"/>
+            </svg>
+        </div>
+
+        <div class="buttons">
+            <button class="btn-primary" onclick="downloadSVG()">📥 Download SVG</button>
+            <button class="btn-secondary" onclick="downloadPNG()">📥 Download PNG</button>
+        </div>
+    </div>
+
+    <script>
+        function downloadSVG() {
+            const svg = document.querySelector('svg');
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const canvas = document.createElement('a');
+            canvas.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+            canvas.download = 'citadel-chat-logo.svg';
+            document.body.appendChild(canvas);
+            canvas.click();
+            document.body.removeChild(canvas);
+        }
+
+        function downloadPNG() {
+            const svg = document.querySelector('svg');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            canvas.width = 512;
+            canvas.height = 512;
+            
+            img.onload = function() {
+                ctx.fillStyle = '#0a0e17';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                canvas.toBlob(function(blob) {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'citadel-chat-logo.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                });
+            };
+            
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+        }
+    </script>
+</body>
+</html>

@@ -52,6 +52,14 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 PORT = int(os.getenv("PORT", "8000"))
+FORCE_RESET = os.getenv("FORCE_RESET_DB", "false").lower() == "true"
+
+# Force reset embeddings if needed (handles dimension mismatches)
+if FORCE_RESET:
+    import shutil
+    if os.path.exists(PERSIST_DIR):
+        shutil.rmtree(PERSIST_DIR)
+        print(f"[RESET] Deleted old embeddings at {PERSIST_DIR}")
 
 # Create directories if they don't exist
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -446,44 +454,68 @@ async def upload_file(
     current_user: User = Depends(get_current_user),
 ):
     """Upload a PDF to the user's private vault and index it for RAG."""
-    # Save the uploaded file to the vault
-    file_id = str(uuid.uuid4())
-    file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    # Load and split the PDF into chunks
-    loader = PyPDFLoader(file_path)
-    documents = loader.load()
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000, chunk_overlap=200
-    )
-    chunks = text_splitter.split_documents(documents)
-
-    # Tag every chunk with the owner's ID for data isolation
-    for chunk in chunks:
-        chunk.metadata["owner_id"] = current_user.id
-        chunk.metadata["source"] = file.filename
-
-    # Create embeddings and store in ChromaDB
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-    vector_db = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings,
-        persist_directory=PERSIST_DIR,
-    )
-
-    # Explicitly persist to disk (ensures data survives restarts)
     try:
-        vector_db.persist()
-    except AttributeError:
-        pass  # Newer Chroma versions auto-persist
+        # Validate file type
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF files are allowed"
+            )
+        
+        # Save the uploaded file to the vault
+        file_id = str(uuid.uuid4())
+        file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    return {
-        "message": f"'{file.filename}' uploaded and indexed successfully.",
-        "chunks_indexed": len(chunks),
-        "owner": current_user.username,
-    }
+        # Load and split the PDF into chunks
+        loader = PyPDFLoader(file_path)
+        documents = loader.load()
+        
+        if not documents:
+            os.remove(file_path)  # Clean up invalid file
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PDF is empty or not a valid PDF file"
+            )
+        
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000, chunk_overlap=200
+        )
+        chunks = text_splitter.split_documents(documents)
+
+        # Tag every chunk with the owner's ID for data isolation
+        for chunk in chunks:
+            chunk.metadata["owner_id"] = current_user.id
+            chunk.metadata["source"] = file.filename
+
+        # Create embeddings and store in ChromaDB
+        embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+        vector_db = Chroma.from_documents(
+            documents=chunks,
+            embedding=embeddings,
+            persist_directory=PERSIST_DIR,
+        )
+
+        # Explicitly persist to disk (ensures data survives restarts)
+        try:
+            vector_db.persist()
+        except AttributeError:
+            pass  # Newer Chroma versions auto-persist
+
+        return {
+            "message": f"'{file.filename}' uploaded and indexed successfully.",
+            "chunks_indexed": len(chunks),
+            "owner": current_user.username,
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Upload failed: {str(e)}"
+        )
 
 
 # -------------------------------------------------------------------------
@@ -501,127 +533,144 @@ async def chat(
     - Conversational memory (last 6 messages injected into prompt)
     - Uses Groq API for LLM and HuggingFace for embeddings
     """
-    # ── 1. Save the incoming user message ────────────────────────────
-    user_msg = Message(
-        user_id=current_user.id,
-        content=request.question,
-        sender="user",
-    )
-    db.add(user_msg)
-    db.commit()
-    db.refresh(user_msg)
+    try:
+        # Validate GROQ API Key
+        if not GROQ_API_KEY or GROQ_API_KEY == "":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="GROQ_API_KEY not configured. Please set the environment variable."
+            )
+        
+        # ── 1. Save the incoming user message ────────────────────────────
+        user_msg = Message(
+            user_id=current_user.id,
+            content=request.question,
+            sender="user",
+        )
+        db.add(user_msg)
+        db.commit()
+        db.refresh(user_msg)
 
-    # ── 2. Build Chat History (last 6 messages) ─────────────────────
-    recent_messages = (
-        db.query(Message)
-        .filter(Message.user_id == current_user.id)
-        .order_by(Message.id.desc())
-        .limit(6)
-        .all()
-    )
-    recent_messages.reverse()
+        # ── 2. Build Chat History (last 6 messages) ─────────────────────
+        recent_messages = (
+            db.query(Message)
+            .filter(Message.user_id == current_user.id)
+            .order_by(Message.id.desc())
+            .limit(6)
+            .all()
+        )
+        recent_messages.reverse()
 
-    chat_history = ""
-    for msg in recent_messages:
-        role = "User" if msg.sender == "user" else "AI"
-        chat_history += f"{role}: {msg.content}\n"
+        chat_history = ""
+        for msg in recent_messages:
+            role = "User" if msg.sender == "user" else "AI"
+            chat_history += f"{role}: {msg.content}\n"
 
-    # ── 3. Rewrite vague follow-ups into standalone queries ─────────
-    #    If the user says "and..", "more", "tell me anything", etc.,
-    #    the retriever can't find relevant docs. We use the LLM to
-    #    rewrite the question using chat history so retrieval works.
-    llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0)
+        # ── 3. Rewrite vague follow-ups into standalone queries ─────────
+        #    If the user says "and..", "more", "tell me anything", etc.,
+        #    the retriever can't find relevant docs. We use the LLM to
+        #    rewrite the question using chat history so retrieval works.
+        llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0)
 
-    rewrite_prompt = PromptTemplate(
-        template=(
-            "Given the following conversation history and a follow-up question, "
-            "rewrite the follow-up question as a standalone search query that "
-            "captures what the user is really asking about. "
-            "If the question is already clear and specific, return it unchanged.\n\n"
-            "Chat History:\n{chat_history}\n\n"
-            "Follow-up Question: {question}\n\n"
-            "Standalone search query:"
-        ),
-        input_variables=["chat_history", "question"],
-    )
+        rewrite_prompt = PromptTemplate(
+            template=(
+                "Given the following conversation history and a follow-up question, "
+                "rewrite the follow-up question as a standalone search query that "
+                "captures what the user is really asking about. "
+                "If the question is already clear and specific, return it unchanged.\n\n"
+                "Chat History:\n{chat_history}\n\n"
+                "Follow-up Question: {question}\n\n"
+                "Standalone search query:"
+            ),
+            input_variables=["chat_history", "question"],
+        )
 
-    search_query = request.question
-    # Only rewrite if there's chat history (follow-up scenario)
-    if chat_history.strip():
-        try:
-            rewritten = (rewrite_prompt | llm | StrOutputParser()).invoke({
-                "chat_history": chat_history,
-                "question": request.question,
-            })
-            rewritten = rewritten.strip()
-            if rewritten:
-                search_query = rewritten
-        except Exception:
-            pass  # Fall back to original question
+        search_query = request.question
+        # Only rewrite if there's chat history (follow-up scenario)
+        if chat_history.strip():
+            try:
+                rewritten = (rewrite_prompt | llm | StrOutputParser()).invoke({
+                    "chat_history": chat_history,
+                    "question": request.question,
+                })
+                rewritten = rewritten.strip()
+                if rewritten:
+                    search_query = rewritten
+            except Exception as e:
+                # Fall back to original question if rewrite fails
+                print(f"Query rewrite failed: {str(e)}")
 
-    # ── 4. RAG Pipeline ─────────────────────────────────────────────
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-    vectorstore = Chroma(
-        persist_directory=PERSIST_DIR,
-        embedding_function=embeddings,
-    )
+        # ── 4. RAG Pipeline ─────────────────────────────────────────────
+        embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+        vectorstore = Chroma(
+            persist_directory=PERSIST_DIR,
+            embedding_function=embeddings,
+        )
 
-    # Retriever with owner_id filter for data isolation
-    retriever = vectorstore.as_retriever(
-        search_kwargs={
-            "k": 4,
-            "filter": {"owner_id": current_user.id},
+        # Retriever with owner_id filter for data isolation
+        retriever = vectorstore.as_retriever(
+            search_kwargs={
+                "k": 4,
+                "filter": {"owner_id": current_user.id},
+            }
+        )
+
+        # Prompt: conversational, uses chat history, continues naturally
+        prompt_template = PromptTemplate(
+            template=(
+                "You are a helpful assistant that answers questions based on the user's "
+                "uploaded documents. Use the provided context and chat history to give "
+                "thorough, informative answers. If the user asks a follow-up or says "
+                "something like 'and', 'more', 'continue', 'tell me more', expand on "
+                "your previous answer using the context.\n\n"
+                "If the context truly contains nothing relevant at all, say "
+                "'I don't have enough information in your vault to answer that.'\n\n"
+                "Chat History:\n{chat_history}\n\n"
+                "Context from documents:\n{context}\n\n"
+                "Question: {question}\n\n"
+                "Answer:"
+            ),
+            input_variables=["context", "question", "chat_history"],
+        )
+
+        def format_docs(docs):
+            return "\n\n".join(doc.page_content for doc in docs)
+
+        # Use the rewritten query for retrieval, but pass original question to prompt
+        source_docs = retriever.invoke(search_query)
+        context_text = format_docs(source_docs)
+
+        answer = (prompt_template | llm | StrOutputParser()).invoke({
+            "context": context_text,
+            "question": request.question,
+            "chat_history": chat_history,
+        })
+
+        sources = list(
+            {doc.metadata.get("source", "unknown") for doc in source_docs}
+        )
+
+        # ── 5. Save AI response ─────────────────────────────────────────
+        ai_msg = Message(
+            user_id=current_user.id,
+            content=answer,
+            sender="ai",
+        )
+        db.add(ai_msg)
+        db.commit()
+
+        return {
+            "answer": answer,
+            "sources": sources,
         }
-    )
-
-    # Prompt: conversational, uses chat history, continues naturally
-    prompt_template = PromptTemplate(
-        template=(
-            "You are a helpful assistant that answers questions based on the user's "
-            "uploaded documents. Use the provided context and chat history to give "
-            "thorough, informative answers. If the user asks a follow-up or says "
-            "something like 'and', 'more', 'continue', 'tell me more', expand on "
-            "your previous answer using the context.\n\n"
-            "If the context truly contains nothing relevant at all, say "
-            "'I don't have enough information in your vault to answer that.'\n\n"
-            "Chat History:\n{chat_history}\n\n"
-            "Context from documents:\n{context}\n\n"
-            "Question: {question}\n\n"
-            "Answer:"
-        ),
-        input_variables=["context", "question", "chat_history"],
-    )
-
-    def format_docs(docs):
-        return "\n\n".join(doc.page_content for doc in docs)
-
-    # Use the rewritten query for retrieval, but pass original question to prompt
-    source_docs = retriever.invoke(search_query)
-    context_text = format_docs(source_docs)
-
-    answer = (prompt_template | llm | StrOutputParser()).invoke({
-        "context": context_text,
-        "question": request.question,
-        "chat_history": chat_history,
-    })
-
-    sources = list(
-        {doc.metadata.get("source", "unknown") for doc in source_docs}
-    )
-
-    # ── 5. Save AI response ─────────────────────────────────────────
-    ai_msg = Message(
-        user_id=current_user.id,
-        content=answer,
-        sender="ai",
-    )
-    db.add(ai_msg)
-    db.commit()
-
-    return {
-        "answer": answer,
-        "sources": sources,
-    }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Chat request failed: {str(e)}"
+        )
 
 
 # =========================================================================

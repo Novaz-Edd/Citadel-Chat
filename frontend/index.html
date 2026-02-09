@@ -1140,6 +1140,9 @@
 (function() {
     'use strict';
 
+    // ─── API CONFIGURATION ─────────────────────
+    const API_BASE_URL = 'http://localhost:8000';
+
     // ─── STATE ─────────────────────────────────
     let authToken = null;
     let currentUser = null;
@@ -1205,6 +1208,11 @@
         if (!authToken) {
             autoLogout('No authentication token. Please sign in.');
             throw new Error('UNAUTHORIZED');
+        }
+
+        // Ensure URL includes the API base
+        if (!url.startsWith('http')) {
+            url = API_BASE_URL + url;
         }
 
         // Build headers — CRITICAL: Do NOT set Content-Type for FormData!
@@ -1387,7 +1395,7 @@
                 throw new Error('Password must be at least 6 characters.');
             }
 
-            var res = await fetch('/register', {
+            var res = await fetch(API_BASE_URL + '/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: username, password: password })
@@ -1405,7 +1413,7 @@
             formData.append('username', username);
             formData.append('password', password);
 
-            var loginRes = await fetch('/token', {
+            var loginRes = await fetch(API_BASE_URL + '/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData
@@ -1439,7 +1447,7 @@
         document.getElementById('authError').style.display = 'none';
 
         try {
-            var res = await fetch('/guest-login', {
+            var res = await fetch(API_BASE_URL + '/guest-login', {
                 method: 'POST'
             });
 
@@ -1654,7 +1662,7 @@
         document.getElementById('sendBtn').disabled = true;
 
         try {
-            var res = await fetchWithAuth('/chat', {
+            var res = await fetchWithAuth(API_BASE_URL + '/chat', {
                 method: 'POST',
                 body: JSON.stringify({ question: question })
             });
@@ -1731,7 +1739,7 @@
             progressFill.style.width = '60%';
             progressText.textContent = 'Processing and indexing...';
 
-            var res = await fetchWithAuth('/upload', {
+            var res = await fetchWithAuth(API_BASE_URL + '/upload', {
                 method: 'POST',
                 body: formData
             });
