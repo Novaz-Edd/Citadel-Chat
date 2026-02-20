@@ -1233,8 +1233,8 @@
         try {
             response = await fetch(url, options);
         } catch (networkError) {
-            showToast('Backend is offline. Please start the server.', 'error');
-            showAuthError('Cannot reach server. Is the backend running on port 8000?');
+            showToast('Cannot reach server. Please try again.', 'error');
+            showAuthError('Cannot reach server. Please try again.');
             throw networkError;
         }
 
@@ -1353,14 +1353,14 @@
             formData.append('username', username);
             formData.append('password', password);
 
-            var res = await fetch('/token', {
+            var res = await fetch(API_BASE_URL + '/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData
             });
 
             if (!res.ok) {
-                var err = await res.json();
+                var err = await res.json().catch(function() { return {}; });
                 throw new Error(err.detail || 'Invalid credentials');
             }
 
@@ -1372,7 +1372,7 @@
 
         } catch (err) {
             if (err.message === 'Failed to fetch') {
-                showAuthError('Cannot reach server. Is the backend running on port 8000?');
+                showAuthError('Cannot reach server. Please try again.');
             } else {
                 showAuthError(err.message);
             }
@@ -1404,7 +1404,7 @@
             });
 
             if (!res.ok) {
-                var err = await res.json();
+                var err = await res.json().catch(function() { return {}; });
                 throw new Error(err.detail || 'Registration failed');
             }
 
@@ -1431,7 +1431,7 @@
 
         } catch (err) {
             if (err.message === 'Failed to fetch') {
-                showAuthError('Cannot reach server. Is the backend running on port 8000?');
+                showAuthError('Cannot reach server. Please try again.');
             } else {
                 showAuthError(err.message);
             }
@@ -2015,14 +2015,14 @@
             formData.append('username', username);
             formData.append('password', password);
 
-            var res = await fetch('/token', {
+            var res = await fetch(API_BASE_URL + '/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData
             });
 
             if (!res.ok) {
-                var err = await res.json();
+                var err = await res.json().catch(function() { return {}; });
                 throw new Error(err.detail || 'Invalid credentials');
             }
 
