@@ -622,19 +622,19 @@ async def chat(
             }
         )
 
-        # Prompt: conversational, uses chat history, continues naturally
+        # Prompt: document-first, falls back to general knowledge when no docs match
         prompt_template = PromptTemplate(
             template=(
-                "You are a helpful, knowledgeable assistant. "
-                "When the user's uploaded documents contain relevant information, use that context to give "
-                "thorough, accurate answers and cite the source. "
-                "If the user asks a follow-up or says something like 'and', 'more', 'continue', "
-                "'tell me more', expand on your previous answer.\n\n"
-                "If the document context is empty or not relevant to the question, "
-                "answer using your own general knowledge — do NOT say you lack information "
-                "unless the topic is genuinely obscure or requires real-time data.\n\n"
+                "You are a helpful, knowledgeable assistant.\n\n"
+                "INSTRUCTIONS:\n"
+                "1. If the 'Document Context' section below contains relevant information, "
+                "use it as your PRIMARY source and answer based on it directly and thoroughly.\n"
+                "2. If the 'Document Context' is empty or does not contain information relevant "
+                "to the question, answer from your own general knowledge.\n"
+                "3. If the user asks a follow-up (e.g. 'and?', 'more', 'continue', 'tell me more'), "
+                "expand on your previous answer.\n\n"
                 "Chat History:\n{chat_history}\n\n"
-                "Context from documents (may be empty):\n{context}\n\n"
+                "Document Context:\n{context}\n\n"
                 "Question: {question}\n\n"
                 "Answer:"
             ),
