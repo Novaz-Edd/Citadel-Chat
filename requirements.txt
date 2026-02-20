@@ -3,6 +3,7 @@ uvicorn[standard]
 sqlalchemy
 bcrypt
 python-jose[cryptography]
+python-dotenv
 python-multipart
 pydantic
 langchain

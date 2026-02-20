@@ -13,6 +13,13 @@ import uuid
 from typing import List
 from datetime import datetime, timedelta
 
+# Load .env file automatically (for local development)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -535,10 +542,10 @@ async def chat(
     """
     try:
         # Validate GROQ API Key
-        if not GROQ_API_KEY or GROQ_API_KEY == "":
+        if not GROQ_API_KEY or GROQ_API_KEY == "" or GROQ_API_KEY == "your_groq_api_key_here":
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="GROQ_API_KEY not configured. Please set the environment variable."
+                detail="GROQ_API_KEY is not configured. Please open the .env file and add your Groq API key. Get a free key at https://console.groq.com"
             )
         
         # ── 1. Save the incoming user message ────────────────────────────

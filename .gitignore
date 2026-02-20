@@ -15,3 +15,26 @@ citadel_memory/
 # OS
 .DS_Store
 Thumbs.db
+
+# Env files
+.env
+.env.*
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Virtualenv
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Node
+node_modules/
