@@ -16,9 +16,10 @@ citadel_memory/
 .DS_Store
 Thumbs.db
 
-# Env files
+# Env files (keep .env.example tracked, ignore actual secrets)
 .env
-.env.*
+.env.local
+.env.production
 
 # Python bytecode
 __pycache__/
