@@ -1141,7 +1141,9 @@
     'use strict';
 
     // ─── API CONFIGURATION ─────────────────────
-    const API_BASE_URL = 'http://localhost:8000';
+    // Dynamically resolve the API base URL so the frontend works
+    // both locally (localhost:8000) and on any deployed host (Render, etc.)
+    const API_BASE_URL = window.location.origin;
 
     // ─── STATE ─────────────────────────────────
     let authToken = null;
