@@ -40,7 +40,8 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_groq import ChatGroq
-from langchain_huggingface import HuggingFaceEmbeddings
+# HuggingFaceEmbeddings is imported lazily inside get_embeddings()
+# so torch/sentence-transformers are never loaded when using the Inference API
 
 # -------------------------------------------------------------------------
 # 2. CONFIGURATION
@@ -58,6 +59,7 @@ PERSIST_DIR = os.path.join(_DATA_DIR, "citadel_memory")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACEHUB_API_TOKEN", "")
 PORT = int(os.getenv("PORT", "8000"))
 FORCE_RESET = os.getenv("FORCE_RESET_DB", "false").lower() == "true"
 
@@ -71,6 +73,30 @@ if FORCE_RESET:
 # Create directories if they don't exist
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(PERSIST_DIR, exist_ok=True)
+
+# -------------------------------------------------------------------------
+# EMBEDDING SINGLETON — loaded once, reused across all requests
+# On Render free (512MB RAM): set HUGGINGFACEHUB_API_TOKEN env var to use
+# the HuggingFace Inference API instead of loading the model locally.
+# Locally (no token): loads the model on-device as before.
+# -------------------------------------------------------------------------
+_EMBEDDINGS_INSTANCE = None
+
+def get_embeddings():
+    global _EMBEDDINGS_INSTANCE
+    if _EMBEDDINGS_INSTANCE is None:
+        if HUGGINGFACE_TOKEN:
+            from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+            _EMBEDDINGS_INSTANCE = HuggingFaceInferenceAPIEmbeddings(
+                api_key=HUGGINGFACE_TOKEN,
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+            )
+            print("[Citadel] Embeddings: HuggingFace Inference API (cloud, low RAM)")
+        else:
+            from langchain_huggingface import HuggingFaceEmbeddings
+            _EMBEDDINGS_INSTANCE = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+            print("[Citadel] Embeddings: local model (dev mode)")
+    return _EMBEDDINGS_INSTANCE
 
 # -------------------------------------------------------------------------
 # 3. DATABASE SETUP (SQLite)
@@ -497,7 +523,7 @@ async def upload_file(
             chunk.metadata["source"] = file.filename
 
         # Create embeddings and store in ChromaDB
-        embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+        embeddings = get_embeddings()
         vector_db = Chroma.from_documents(
             documents=chunks,
             embedding=embeddings,
@@ -608,7 +634,7 @@ async def chat(
                 print(f"Query rewrite failed: {str(e)}")
 
         # ── 4. RAG Pipeline ─────────────────────────────────────────────
-        embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+        embeddings = get_embeddings()
         vectorstore = Chroma(
             persist_directory=PERSIST_DIR,
             embedding_function=embeddings,
