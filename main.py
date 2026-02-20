@@ -625,15 +625,16 @@ async def chat(
         # Prompt: conversational, uses chat history, continues naturally
         prompt_template = PromptTemplate(
             template=(
-                "You are a helpful assistant that answers questions based on the user's "
-                "uploaded documents. Use the provided context and chat history to give "
-                "thorough, informative answers. If the user asks a follow-up or says "
-                "something like 'and', 'more', 'continue', 'tell me more', expand on "
-                "your previous answer using the context.\n\n"
-                "If the context truly contains nothing relevant at all, say "
-                "'I don't have enough information in your vault to answer that.'\n\n"
+                "You are a helpful, knowledgeable assistant. "
+                "When the user's uploaded documents contain relevant information, use that context to give "
+                "thorough, accurate answers and cite the source. "
+                "If the user asks a follow-up or says something like 'and', 'more', 'continue', "
+                "'tell me more', expand on your previous answer.\n\n"
+                "If the document context is empty or not relevant to the question, "
+                "answer using your own general knowledge — do NOT say you lack information "
+                "unless the topic is genuinely obscure or requires real-time data.\n\n"
                 "Chat History:\n{chat_history}\n\n"
-                "Context from documents:\n{context}\n\n"
+                "Context from documents (may be empty):\n{context}\n\n"
                 "Question: {question}\n\n"
                 "Answer:"
             ),
