@@ -129,6 +129,28 @@ def get_embeddings():
 # ingestion tasks never corrupt the on-disk vector store.
 _CHROMA_WRITE_LOCK = threading.Lock()
 
+# -------------------------------------------------------------------------
+# CHROMA SINGLETON — one persistent client reused across all requests.
+# Creating a new Chroma() on every request opens a new SQLite connection,
+# which causes "database is locked" errors (reported as error code 0) when
+# a background ingest task is writing at the same time.
+# -------------------------------------------------------------------------
+_CHROMA_INSTANCE = None
+_CHROMA_INSTANCE_LOCK = threading.Lock()
+
+def get_vectorstore() -> "Chroma":
+    """Return the shared ChromaDB client, initialising it on first call."""
+    global _CHROMA_INSTANCE
+    if _CHROMA_INSTANCE is None:
+        with _CHROMA_INSTANCE_LOCK:
+            if _CHROMA_INSTANCE is None:
+                _CHROMA_INSTANCE = Chroma(
+                    persist_directory=PERSIST_DIR,
+                    embedding_function=get_embeddings(),
+                )
+                print("[Citadel] ChromaDB: persistent client initialised")
+    return _CHROMA_INSTANCE
+
 # ── Upload job status tracker ─────────────────────────────────────────────
 # Lightweight in-memory map: job_id → "processing" | "done" | "error: ..."
 # Safe for Render free tier (single worker process).
@@ -546,19 +568,10 @@ def _ingest_pdf(file_path: str, filename: str, owner_id: int, job_id: str) -> No
             chunk.metadata["owner_id"] = owner_id
             chunk.metadata["source"] = filename
 
-        embeddings = get_embeddings()
-
-        # Serialise all ChromaDB writes to prevent concurrent corruption
+        # Serialise all ChromaDB writes; use the singleton client so reads
+        # in /chat share the same SQLite connection and never see a locked DB.
         with _CHROMA_WRITE_LOCK:
-            vector_db = Chroma.from_documents(
-                documents=chunks,
-                embedding=embeddings,
-                persist_directory=PERSIST_DIR,
-            )
-            try:
-                vector_db.persist()
-            except AttributeError:
-                pass  # Newer Chroma versions auto-persist
+            get_vectorstore().add_documents(chunks)
 
         with _ingest_jobs_lock:
             _ingest_jobs[job_id] = "done"
@@ -733,11 +746,8 @@ async def chat(
                 print(f"Query rewrite failed: {str(e)}")
 
         # ── 4. RAG Pipeline ─────────────────────────────────────────────
-        embeddings = get_embeddings()
-        vectorstore = Chroma(
-            persist_directory=PERSIST_DIR,
-            embedding_function=embeddings,
-        )
+        # Use the shared ChromaDB client — avoids concurrent SQLite conflicts.
+        vectorstore = get_vectorstore()
 
         # Retriever with owner_id filter for data isolation
         retriever = vectorstore.as_retriever(
@@ -800,9 +810,13 @@ async def chat(
     except HTTPException:
         raise
     except Exception as e:
+        # Log full traceback to Render logs for debugging
+        import traceback
+        print(f"[Citadel] Chat error [{type(e).__name__}]: {e}")
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Chat request failed: {str(e)}"
+            detail=f"Chat request failed [{type(e).__name__}]: {str(e)}"
         )
 
 
