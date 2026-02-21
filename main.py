@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # =========================================================================
 # CITADEL-CHAT: Your Private Knowledge Fortress
 # =========================================================================
@@ -10,6 +11,7 @@
 import os
 import shutil
 import uuid
+import threading
 from typing import List
 from datetime import datetime, timedelta
 
@@ -20,7 +22,7 @@ try:
 except ImportError:
     pass
 
-from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -74,29 +76,64 @@ if FORCE_RESET:
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(PERSIST_DIR, exist_ok=True)
 
+# ── Production RAM guard ─────────────────────────────────────────────────
+# Render free tier has 512 MB RAM. Loading sentence-transformers + PyTorch
+# locally consumes ~400 MB and will OOM-kill the process.
+# Set HUGGINGFACEHUB_API_TOKEN to use the HF Inference API instead (free).
+# Get a free token at https://huggingface.co/settings/tokens
+_IS_PRODUCTION = bool(os.getenv("DATA_DIR"))
+if _IS_PRODUCTION and not HUGGINGFACE_TOKEN:
+    print(
+        "\n"
+        + "=" * 64 + "\n"
+        "  [!] PRODUCTION RAM WARNING\n"
+        "  HUGGINGFACEHUB_API_TOKEN is not set.\n"
+        "  Local sentence-transformers loads PyTorch (~400 MB) and\n"
+        "  may OOM-kill this container on Render free (512 MB).\n"
+        "  Add HUGGINGFACEHUB_API_TOKEN in your Render dashboard.\n"
+        "  Free token: https://huggingface.co/settings/tokens\n"
+        + "=" * 64 + "\n"
+    )
+
 # -------------------------------------------------------------------------
 # EMBEDDING SINGLETON — loaded once, reused across all requests
+# Thread-safe via double-checked locking so concurrent background tasks
+# never race to initialise the model a second time.
 # On Render free (512MB RAM): set HUGGINGFACEHUB_API_TOKEN env var to use
 # the HuggingFace Inference API instead of loading the model locally.
 # Locally (no token): loads the model on-device as before.
 # -------------------------------------------------------------------------
 _EMBEDDINGS_INSTANCE = None
+_EMBEDDINGS_LOCK = threading.Lock()
 
 def get_embeddings():
     global _EMBEDDINGS_INSTANCE
     if _EMBEDDINGS_INSTANCE is None:
-        if HUGGINGFACE_TOKEN:
-            from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
-            _EMBEDDINGS_INSTANCE = HuggingFaceInferenceAPIEmbeddings(
-                api_key=HUGGINGFACE_TOKEN,
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
-            )
-            print("[Citadel] Embeddings: HuggingFace Inference API (cloud, low RAM)")
-        else:
-            from langchain_huggingface import HuggingFaceEmbeddings
-            _EMBEDDINGS_INSTANCE = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-            print("[Citadel] Embeddings: local model (dev mode)")
+        with _EMBEDDINGS_LOCK:
+            # Re-check inside the lock (double-checked locking)
+            if _EMBEDDINGS_INSTANCE is None:
+                if HUGGINGFACE_TOKEN:
+                    from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+                    _EMBEDDINGS_INSTANCE = HuggingFaceInferenceAPIEmbeddings(
+                        api_key=HUGGINGFACE_TOKEN,
+                        model_name="sentence-transformers/all-MiniLM-L6-v2",
+                    )
+                    print("[Citadel] Embeddings: HuggingFace Inference API (cloud, low RAM)")
+                else:
+                    from langchain_huggingface import HuggingFaceEmbeddings
+                    _EMBEDDINGS_INSTANCE = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+                    print("[Citadel] Embeddings: local model (dev mode)")
     return _EMBEDDINGS_INSTANCE
+
+# Lock that serialises all ChromaDB write operations so concurrent background
+# ingestion tasks never corrupt the on-disk vector store.
+_CHROMA_WRITE_LOCK = threading.Lock()
+
+# ── Upload job status tracker ─────────────────────────────────────────────
+# Lightweight in-memory map: job_id → "processing" | "done" | "error: ..."
+# Safe for Render free tier (single worker process).
+_ingest_jobs: dict = {}
+_ingest_jobs_lock = threading.Lock()
 
 # -------------------------------------------------------------------------
 # 3. DATABASE SETUP (SQLite)
@@ -479,76 +516,138 @@ class ChatRequest(BaseModel):
 
 
 # -------------------------------------------------------------------------
-# 2. UPLOAD ENDPOINT (The Vault)
+# 2. BACKGROUND INGESTION TASK
 # -------------------------------------------------------------------------
-@app.post("/upload")
-async def upload_file(
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-):
-    """Upload a PDF to the user's private vault and index it for RAG."""
-    try:
-        # Validate file type
-        if not file.filename.lower().endswith('.pdf'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only PDF files are allowed"
-            )
-        
-        # Save the uploaded file to the vault
-        file_id = str(uuid.uuid4())
-        file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+def _ingest_pdf(file_path: str, filename: str, owner_id: int, job_id: str) -> None:
+    """Load, chunk, embed, and store a PDF in ChromaDB.
 
-        # Load and split the PDF into chunks
+    Runs in a FastAPI BackgroundTask so the HTTP response is returned
+    instantly and Render's 15-second request timeout is never hit.
+    Job status is tracked in _ingest_jobs so the frontend can poll
+    GET /upload/status/{job_id} to know when indexing is complete.
+    """
+    try:
         loader = PyPDFLoader(file_path)
         documents = loader.load()
-        
+
         if not documents:
-            os.remove(file_path)  # Clean up invalid file
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="PDF is empty or not a valid PDF file"
-            )
-        
+            print(f"[Citadel] Ingest skipped — empty PDF: {filename}")
+            with _ingest_jobs_lock:
+                _ingest_jobs[job_id] = "error: PDF is empty or unreadable"
+            return
+
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000, chunk_overlap=200
         )
         chunks = text_splitter.split_documents(documents)
 
-        # Tag every chunk with the owner's ID for data isolation
+        # Tag every chunk with the owner's ID for strict data isolation
         for chunk in chunks:
-            chunk.metadata["owner_id"] = current_user.id
-            chunk.metadata["source"] = file.filename
+            chunk.metadata["owner_id"] = owner_id
+            chunk.metadata["source"] = filename
 
-        # Create embeddings and store in ChromaDB
         embeddings = get_embeddings()
-        vector_db = Chroma.from_documents(
-            documents=chunks,
-            embedding=embeddings,
-            persist_directory=PERSIST_DIR,
+
+        # Serialise all ChromaDB writes to prevent concurrent corruption
+        with _CHROMA_WRITE_LOCK:
+            vector_db = Chroma.from_documents(
+                documents=chunks,
+                embedding=embeddings,
+                persist_directory=PERSIST_DIR,
+            )
+            try:
+                vector_db.persist()
+            except AttributeError:
+                pass  # Newer Chroma versions auto-persist
+
+        with _ingest_jobs_lock:
+            _ingest_jobs[job_id] = "done"
+
+        print(
+            f"[Citadel] Ingest complete — {len(chunks)} chunks "
+            f"from '{filename}' (owner_id={owner_id}, job_id={job_id})"
+        )
+    except Exception as e:
+        with _ingest_jobs_lock:
+            _ingest_jobs[job_id] = f"error: {str(e)}"
+        print(f"[Citadel] Ingest error for '{filename}': {e}")
+
+
+# -------------------------------------------------------------------------
+# 3. UPLOAD ENDPOINT (The Vault)
+# -------------------------------------------------------------------------
+@app.post("/upload")
+async def upload_file(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a PDF to the user's private vault.
+
+    The file is saved to disk immediately and the response is returned
+    at once. Heavy embedding / ChromaDB work runs in a background task
+    so Render's 15-second request timeout is never triggered.
+    """
+    # Validate file type before touching disk
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF files are allowed"
         )
 
-        # Explicitly persist to disk (ensures data survives restarts)
-        try:
-            vector_db.persist()
-        except AttributeError:
-            pass  # Newer Chroma versions auto-persist
-
-        return {
-            "message": f"'{file.filename}' uploaded and indexed successfully.",
-            "chunks_indexed": len(chunks),
-            "owner": current_user.username,
-        }
-    
-    except HTTPException:
-        raise
+    # Save the raw file immediately — this is fast (I/O only)
+    file_id = str(uuid.uuid4())
+    file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Upload failed: {str(e)}"
+            detail=f"Failed to save file: {str(e)}"
         )
+
+    # Assign a job ID so the client can poll for completion
+    job_id = str(uuid.uuid4())
+    with _ingest_jobs_lock:
+        _ingest_jobs[job_id] = "processing"
+
+    # Schedule CPU-heavy ingestion to run after the response is sent
+    background_tasks.add_task(
+        _ingest_pdf, file_path, file.filename, current_user.id, job_id
+    )
+
+    return {
+        "status": "processing",
+        "job_id": job_id,
+        "message": f"'{file.filename}' received. Indexing in background — poll /upload/status/{job_id} to check when ready.",
+        "owner": current_user.username,
+    }
+
+
+# -------------------------------------------------------------------------
+# 4. UPLOAD STATUS ENDPOINT
+# -------------------------------------------------------------------------
+@app.get("/upload/status/{job_id}")
+async def upload_status(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Poll the indexing status of a previously uploaded PDF.
+
+    Returns:
+      - status: "processing" | "done" | "error: <reason>"
+    """
+    with _ingest_jobs_lock:
+        job_status = _ingest_jobs.get(job_id)
+
+    if job_status is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job ID not found. It may have expired (server restart clears job history).",
+        )
+
+    return {"job_id": job_id, "status": job_status}
 
 
 # -------------------------------------------------------------------------

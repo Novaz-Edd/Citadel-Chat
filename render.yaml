@@ -24,6 +24,12 @@ services:
         value: all-MiniLM-L6-v2
       - key: DATA_DIR
         value: /app/data
+      # STRONGLY RECOMMENDED on Render free (512 MB RAM):
+      # Local sentence-transformers + PyTorch uses ~400 MB and will OOM.
+      # Set this to a free HuggingFace token to use the Inference API instead.
+      # Get one free at: https://huggingface.co/settings/tokens
+      - key: HUGGINGFACEHUB_API_TOKEN
+        sync: false
     disk:
       name: citadel-data
       mountPath: /app/data

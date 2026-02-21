@@ -19,8 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
-# Create data directories
-RUN mkdir -p citadel_vault citadel_memory
+# Data directories are created at runtime by main.py using the DATA_DIR env var.
+# On Render, DATA_DIR=/app/data (the persistent disk mount point).
+# Locally, they are created next to main.py.
 
 # Expose port (Render uses PORT env var)
 EXPOSE 8000
